@@ -17,8 +17,21 @@ import { IK_OBJECTS, STALOWA_WOLA_CENTER } from '@/data/stalowa-wola'
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
 import { refreshPublicDataLayer } from '@/services/dataSyncService'
-import { getSystemHealth } from '@/services/systemHealthService'
+import { getSystemHealth, buildSystemHealth } from '@/services/systemHealthService'
 import { resolveIkLocations, syncDroneCoordinates } from '@/services/ikLocationService'
+import { tickMissionState } from '@/services/missionSimulation'
+import {
+  applyIkStates,
+  saveAlert,
+  saveAlerts,
+  saveAuditEntry,
+  saveIkObjectState,
+  saveIncident,
+  saveMission,
+  saveRecommendation,
+  saveScenarioRun,
+  type HydratedAppData,
+} from '@/services/databaseService'
 
 interface AppState {
   // Auth
@@ -68,6 +81,8 @@ interface AppState {
   updateDrone: (id: string, patch: Partial<DroneUnit>) => void
   missions: DroneMission[]
   addMission: (mission: DroneMission) => void
+  updateMission: (id: string, patch: Partial<DroneMission>) => void
+  tickActiveMissions: () => void
 
   // Audit
   auditEntries: AuditEntry[]
@@ -82,6 +97,18 @@ interface AppState {
   setSidebarExpanded: (val: boolean) => void
   activeView: string
   setActiveView: (view: string) => void
+  focusedIkObjectId: string | null
+  setFocusedIkObjectId: (id: string | null) => void
+  openIkObjectOnMap: (id: string) => void
+  openIkObjectOnGraph: (id: string) => void
+  openIkObjectAlerts: (id: string) => void
+  openScenarios: () => void
+  focusedDroneMissionId: string | null
+  setFocusedDroneMissionId: (id: string | null) => void
+  openDroneMissionOnMap: (missionId: string) => void
+
+  // Database
+  hydrateDatabase: (data: HydratedAppData) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -129,10 +156,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ ikLocationsResolved: true, ikLocationsLoading: false })
     }
   },
-  updateObjectStatus: (id, status) =>
-    set(state => ({
-      ikObjects: state.ikObjects.map(o => (o.id === id ? { ...o, status } : o)),
-    })),
+  updateObjectStatus: (id, status) => {
+    set(state => {
+      const ikObjects = state.ikObjects.map(o => (o.id === id ? { ...o, status } : o))
+      const updated = ikObjects.find(o => o.id === id)
+      if (updated) {
+        void saveIkObjectState({ id: updated.id, status: updated.status, coordinates: updated.coordinates }).catch(() => {})
+      }
+      return { ikObjects }
+    })
+  },
   resetObjectStatuses: () =>
     set(state => ({
       ikObjects: IK_OBJECTS.map(base => {
@@ -142,26 +175,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   alerts: [],
-  addAlerts: (alerts) =>
-    set(state => ({ alerts: [...alerts, ...state.alerts] })),
-  updateAlert: (id, patch) =>
-    set(state => ({
-      alerts: state.alerts.map(a => (a.id === id ? { ...a, ...patch } : a)),
-    })),
+  addAlerts: (alerts) => {
+    set(state => ({ alerts: [...alerts, ...state.alerts] }))
+    void saveAlerts(alerts).catch(() => {})
+  },
+  updateAlert: (id, patch) => {
+    set(state => {
+      const alerts = state.alerts.map(a => (a.id === id ? { ...a, ...patch } : a))
+      const updated = alerts.find(a => a.id === id)
+      if (updated) void saveAlert(updated).catch(() => {})
+      return { alerts }
+    })
+  },
   clearAlerts: () => set({ alerts: [] }),
 
   incidents: [],
-  addIncident: (incident) =>
-    set(state => ({ incidents: [incident, ...state.incidents] })),
+  addIncident: (incident) => {
+    set(state => ({ incidents: [incident, ...state.incidents] }))
+    void saveIncident(incident).catch(() => {})
+  },
 
   activeScenarioRun: null,
-  setActiveScenarioRun: (run) => set({ activeScenarioRun: run }),
+  setActiveScenarioRun: (run) => {
+    set({ activeScenarioRun: run })
+    if (run) void saveScenarioRun(run).catch(() => {})
+  },
   cascadeResult: null,
   setCascadeResult: (result) => set({ cascadeResult: result }),
 
   recommendations: [],
-  addRecommendation: (rec) =>
-    set(state => ({ recommendations: [rec, ...state.recommendations] })),
+  addRecommendation: (rec) => {
+    set(state => ({ recommendations: [rec, ...state.recommendations] }))
+    void saveRecommendation(rec).catch(() => {})
+  },
   approveAction: (recId, actionId) =>
     set(state => ({
       recommendations: state.recommendations.map(r =>
@@ -177,17 +223,72 @@ export const useAppStore = create<AppState>((set, get) => ({
       drones: state.drones.map(d => (d.id === id ? { ...d, ...patch } : d)),
     })),
   missions: [],
-  addMission: (mission) =>
-    set(state => ({ missions: [mission, ...state.missions] })),
+  addMission: (mission) => {
+    set(state => ({ missions: [mission, ...state.missions] }))
+    void saveMission(mission).catch(() => {})
+  },
+  updateMission: (id, patch) => {
+    set(state => {
+      const missions = state.missions.map(m => (m.id === id ? { ...m, ...patch } : m))
+      const updated = missions.find(m => m.id === id)
+      if (updated) void saveMission(updated).catch(() => {})
+      return { missions }
+    })
+  },
+  tickActiveMissions: () =>
+    set(state => {
+      let missions = [...state.missions]
+      let drones = [...state.drones]
+      let changed = false
+
+      for (const mission of missions) {
+        if (mission.status === 'completed') continue
+        const droneIndex = drones.findIndex(d => d.id === mission.droneId)
+        if (droneIndex === -1) continue
+
+        const target = state.ikObjects.find(o => o.id === mission.targetObjectId)
+        const { mission: nextMission, drone: dronePatch } = tickMissionState(mission, drones[droneIndex], target)
+
+        const missionChanged =
+          nextMission.status !== mission.status ||
+          nextMission.progressPercent !== mission.progressPercent ||
+          nextMission.onSiteTicks !== mission.onSiteTicks ||
+          nextMission.currentActivityIndex !== mission.currentActivityIndex ||
+          nextMission.activityLabel !== mission.activityLabel ||
+          nextMission.activityProgress !== mission.activityProgress ||
+          (nextMission.findings?.length ?? 0) !== (mission.findings?.length ?? 0) ||
+          nextMission.result !== mission.result
+
+        if (missionChanged) {
+          missions = missions.map(m => (m.id === mission.id ? nextMission : m))
+          void saveMission(nextMission).catch(() => {})
+          changed = true
+        }
+
+        const droneUpdate: Partial<typeof drones[number]> = {
+          ...(dronePatch ?? {}),
+          mission: nextMission.status === 'completed' ? undefined : nextMission,
+        }
+
+        if (dronePatch || missionChanged) {
+          drones[droneIndex] = { ...drones[droneIndex], ...droneUpdate }
+          changed = true
+        }
+      }
+
+      return changed ? { missions, drones } : state
+    }),
 
   auditEntries: [],
-  addAuditEntry: (entry) =>
-    set(state => ({ auditEntries: [entry, ...state.auditEntries] })),
+  addAuditEntry: (entry) => {
+    set(state => ({ auditEntries: [entry, ...state.auditEntries] }))
+    void saveAuditEntry(entry).catch(() => {})
+  },
 
   systemHealth: getSystemHealth(navigator.onLine, 'live'),
   refreshSystemHealth: async () => {
     const state = get()
-    const base = getSystemHealth(state.online, state.mode)
+    const base = await buildSystemHealth(state.online, state.mode)
 
     if (state.mode !== 'live' || !state.online) {
       set({ systemHealth: base })
@@ -214,4 +315,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarExpanded: (val) => set({ sidebarExpanded: val }),
   activeView: 'dashboard',
   setActiveView: (view) => set({ activeView: view }),
+  focusedIkObjectId: null,
+  setFocusedIkObjectId: (id) => set({ focusedIkObjectId: id }),
+  openIkObjectOnMap: (id) => set({ focusedIkObjectId: id, activeView: 'map' }),
+  openIkObjectOnGraph: (id) => set({ focusedIkObjectId: id, activeView: 'graph' }),
+  openIkObjectAlerts: (id) => set({ focusedIkObjectId: id, activeView: 'alerts' }),
+  openScenarios: () => set({ activeView: 'scenarios' }),
+  focusedDroneMissionId: null,
+  setFocusedDroneMissionId: (id) => set({ focusedDroneMissionId: id }),
+  openDroneMissionOnMap: (missionId) => set({ focusedDroneMissionId: missionId, activeView: 'map' }),
+
+  hydrateDatabase: (data) =>
+    set(state => ({
+      auditEntries: data.auditEntries.length > 0 ? data.auditEntries : state.auditEntries,
+      alerts: data.alerts.length > 0 ? data.alerts : state.alerts,
+      incidents: data.incidents.length > 0 ? data.incidents : state.incidents,
+      missions: data.missions.length > 0 ? data.missions : state.missions,
+      recommendations: data.recommendations.length > 0 ? data.recommendations : state.recommendations,
+      ikObjects: applyIkStates(state.ikObjects, data.ikStates),
+    })),
 }))

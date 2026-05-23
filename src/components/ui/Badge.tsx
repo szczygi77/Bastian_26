@@ -70,6 +70,7 @@ export function StatusBadge({ status }: { status: string }) {
     resolved: 'green', escalated: 'orange', available: 'green', on_mission: 'cyan',
     charging: 'warning', maintenance: 'muted', connected: 'green', compliant: 'green',
     partial: 'warning', non_compliant: 'danger', pending_review: 'muted',
+    dispatched: 'cyan', en_route: 'orange', on_site: 'green', returning: 'warning', completed: 'muted',
   }
   return <Badge variant={map[status] ?? 'muted'}>{status.replace(/_/g, ' ')}</Badge>
 }

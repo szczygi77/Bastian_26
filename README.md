@@ -18,6 +18,8 @@ npm run electron:build # build .app / .exe / .AppImage
 
 W trybie **LIVE** aplikacja pobiera m.in. Open-Meteo, OpenSky, NASA FIRMS (opcjonalny klucz) oraz metadane Sentinel-1 z Copernicus Data Space (wymaga `VITE_CDSE_CLIENT_ID` i `VITE_CDSE_CLIENT_SECRET`).
 
+**Zdjęcia obiektów IK** (mapa, tooltips, CCTV): z Google Maps po ustawieniu `VITE_GOOGLE_MAPS_API_KEY` (Places API + Street View + satelita). Bez klucza — fallback Wikimedia / Wikipedia / OSM.
+
 ---
 
 ## Architektura

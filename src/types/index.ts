@@ -180,12 +180,52 @@ export interface DroneMission {
   droneId: string
   type: MissionType
   targetObjectId: string
+  targetName?: string
+  targetShortName?: string
   targetCoordinates: [number, number]
   assignedAt: Date
   estimatedArrivalMin: number
   status: 'dispatched' | 'en_route' | 'on_site' | 'returning' | 'completed'
   incidentId: string
   operatorId: string
+  routeOrigin: [number, number]
+  currentPosition: [number, number]
+  progressPercent: number
+  onSiteTicks?: number
+  activitySteps?: MissionActivityStep[]
+  currentActivityIndex?: number
+  activityTick?: number
+  activityLabel?: string
+  activityProgress?: number
+  findings?: MissionFinding[]
+  result?: MissionResult
+}
+
+export interface MissionActivityStep {
+  id: string
+  label: string
+  description: string
+  durationTicks: number
+  feedMode?: 'rgb' | 'thermal'
+}
+
+export type MissionFindingSeverity = 'info' | 'warning' | 'critical'
+
+export interface MissionFinding {
+  id: string
+  timestamp: Date
+  severity: MissionFindingSeverity
+  message: string
+}
+
+export type MissionVerdict = 'success' | 'partial' | 'failed'
+
+export interface MissionResult {
+  verdict: MissionVerdict
+  summary: string
+  details: string[]
+  recommendations: string[]
+  completedAt: Date
 }
 
 export interface DroneAssignmentScore {

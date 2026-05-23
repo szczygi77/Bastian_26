@@ -31,10 +31,17 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export function DependencyGraph() {
   const svgRef = useRef<SVGSVGElement>(null)
-  const { ikObjects, cascadeResult } = useAppStore()
+  const { ikObjects, cascadeResult, focusedIkObjectId, setFocusedIkObjectId } = useAppStore()
   const [selectedNode, setSelectedNode] = useState<IKObject | null>(null)
   const [simRunning, setSimRunning] = useState(false)
   const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null)
+
+  useEffect(() => {
+    if (!focusedIkObjectId) return
+    const obj = ikObjects.find(o => o.id === focusedIkObjectId)
+    if (obj) setSelectedNode(obj)
+    setFocusedIkObjectId(null)
+  }, [focusedIkObjectId, ikObjects, setFocusedIkObjectId])
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -178,11 +185,10 @@ export function DependencyGraph() {
   const selectedIKObj = selectedNode ? ikObjects.find(o => o.id === selectedNode.id) : null
 
   return (
-    <div className="h-full flex">
-      {/* Graph */}
-      <div className="flex-1 relative">
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
-          <div className="glass rounded-[14px] px-3 py-2 flex items-center gap-3">
+    <div className="graph-page">
+      <div className="graph-page__canvas">
+        <div className="graph-page__toolbar glass-panel ui-panel">
+          <div className="ui-filter-bar" style={{ gap: 12 }}>
             <Badge variant="cyan">BFS/DFS CASCADE ENGINE</Badge>
             {simRunning && <Badge variant="orange">COMPUTING...</Badge>}
             {cascadeResult && (
@@ -192,80 +198,129 @@ export function DependencyGraph() {
             )}
           </div>
         </div>
-        <svg ref={svgRef} className="w-full h-full bg-[#05070A]" />
 
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 glass rounded-[14px] p-3 space-y-1.5">
-          <div className="text-[9px] font-mono text-[#66778B] uppercase tracking-wider mb-2">LEGENDA</div>
-          {[
-            { color: '#22C55E', label: 'Operational' },
-            { color: '#F59E0B', label: 'Degraded' },
-            { color: '#EF4444', label: 'Offline / Under Attack' },
-            { color: 'rgba(0,229,255,0.3)', label: 'Dependency link' },
-            { color: 'rgba(239,68,68,0.7)', label: 'Cascade propagation' },
-          ].map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-2">
-              <div className="w-4 h-0.5 rounded" style={{ background: color }} />
-              <span className="text-[10px] font-mono text-[#66778B]">{label}</span>
-            </div>
-          ))}
+        <svg ref={svgRef} className="graph-page__svg" />
+
+        <div className="graph-page__legend glass-panel ui-panel">
+          <div className="graph-page__legend-title">LEGENDA</div>
+          <div className="ui-stack" style={{ gap: 10 }}>
+            {[
+              { color: '#22C55E', label: 'Operational' },
+              { color: '#F59E0B', label: 'Degraded' },
+              { color: '#EF4444', label: 'Offline / Under Attack' },
+              { color: 'rgba(0,229,255,0.3)', label: 'Dependency link' },
+              { color: 'rgba(239,68,68,0.7)', label: 'Cascade propagation' },
+            ].map(({ color, label }) => (
+              <div key={label} className="graph-page__legend-row">
+                <div className="graph-page__legend-line" style={{ background: color }} />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Side panel */}
-      {selectedIKObj && (
-        <div className="w-72 flex-shrink-0 glass-strong border-l border-white/[0.06] p-4 overflow-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-[12px] font-mono font-bold text-[#00E5FF] uppercase">{selectedIKObj.shortName}</div>
-            <button onClick={() => setSelectedNode(null)} className="text-[#66778B] hover:text-white">✕</button>
-          </div>
-          <Card label="OBIEKT IK">
-            <div className="space-y-2 text-[11px] font-mono">
-              <div className="text-[#94A3B8]">{selectedIKObj.name}</div>
-              <div className="flex justify-between"><span className="text-[#66778B]">Status</span><span style={{ color: statusColor(selectedIKObj.status) }}>{selectedIKObj.status.toUpperCase()}</span></div>
-              <div className="flex justify-between"><span className="text-[#66778B]">Criticality</span><span className="text-[#E6EDF3]">{criticalityLabel(selectedIKObj.criticality)}</span></div>
-              <div className="flex justify-between"><span className="text-[#66778B]">Category</span><span className="text-[#E6EDF3]">{CATEGORY_ICONS[selectedIKObj.category]} {selectedIKObj.category}</span></div>
-              <div className="flex justify-between"><span className="text-[#66778B]">UPS</span><span className="text-[#E6EDF3]">{selectedIKObj.backupPowerHours}h</span></div>
-              <div className="flex justify-between"><span className="text-[#66778B]">Recovery</span><span className="text-[#E6EDF3]">{selectedIKObj.recoveryTimeHours}h</span></div>
+      {selectedIKObj ? (
+        <aside className="graph-page__sidebar">
+          <div className="ui-stack">
+            <div className="graph-page__sidebar-header">
+              <div>
+                <div className="graph-page__sidebar-code">{selectedIKObj.shortName}</div>
+                <div className="graph-page__sidebar-name">{selectedIKObj.name}</div>
+              </div>
+              <button type="button" className="graph-page__sidebar-close" onClick={() => setSelectedNode(null)} aria-label="Zamknij panel">
+                ✕
+              </button>
             </div>
-          </Card>
 
-          {cascadeResult?.nodes.find(n => n.objectId === selectedIKObj.id) && (
-            <Card label="CASCADE DATA" className="mt-3" accent="danger">
-              {(() => {
-                const n = cascadeResult.nodes.find(x => x.objectId === selectedIKObj.id)!
-                return (
-                  <div className="space-y-2 text-[11px] font-mono">
-                    <div className="flex justify-between"><span className="text-[#66778B]">Severity</span><SeverityBadge severity={n.severity} /></div>
-                    <div className="flex justify-between"><span className="text-[#66778B]">Impact Score</span><span className="text-[#EF4444]">{n.impactScore.toFixed(1)}/100</span></div>
-                    <div className="flex justify-between"><span className="text-[#66778B]">Affected At</span><span className="text-[#F59E0B]">{n.affectedAt} min</span></div>
-                    <div className="flex justify-between"><span className="text-[#66778B]">Cascade Depth</span><span className="text-[#E6EDF3]">{n.depth}</span></div>
-                    <div><span className="text-[#66778B]">Via</span><div className="text-[#94A3B8] mt-1">{n.via.join(' → ') || 'bezpośredni'}</div></div>
-                  </div>
-                )
-              })()}
+            <Card label="OBIEKT IK">
+              <div className="ui-stack" style={{ gap: 10 }}>
+                <div className="ui-row-item">
+                  <span className="graph-page__meta-label">Status</span>
+                  <span style={{ color: statusColor(selectedIKObj.status), fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {selectedIKObj.status.toUpperCase()}
+                  </span>
+                </div>
+                <div className="ui-row-item">
+                  <span className="graph-page__meta-label">Criticality</span>
+                  <span className="graph-page__meta-value">{criticalityLabel(selectedIKObj.criticality)}</span>
+                </div>
+                <div className="ui-row-item">
+                  <span className="graph-page__meta-label">Category</span>
+                  <span className="graph-page__meta-value">{CATEGORY_ICONS[selectedIKObj.category]} {selectedIKObj.category}</span>
+                </div>
+                <div className="ui-row-item">
+                  <span className="graph-page__meta-label">UPS</span>
+                  <span className="graph-page__meta-value">{selectedIKObj.backupPowerHours}h</span>
+                </div>
+                <div className="ui-row-item">
+                  <span className="graph-page__meta-label">Recovery</span>
+                  <span className="graph-page__meta-value">{selectedIKObj.recoveryTimeHours}h</span>
+                </div>
+              </div>
             </Card>
-          )}
 
-          <Card label="DEPENDENCIES" className="mt-3">
-            <div className="space-y-1">
-              {selectedIKObj.dependencies.map(depId => {
-                const dep = ikObjects.find(o => o.id === depId)
-                if (!dep) return null
-                return (
-                  <div key={depId} className="flex items-center gap-2 text-[10px] font-mono">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor(dep.status) }} />
-                    <span className="text-[#94A3B8]">{dep.shortName}</span>
-                    <span className="text-[#66778B]">→ {selectedIKObj.shortName}</span>
+            {cascadeResult?.nodes.find(n => n.objectId === selectedIKObj.id) && (
+              <Card label="CASCADE DATA" accent="danger">
+                {(() => {
+                  const n = cascadeResult.nodes.find(x => x.objectId === selectedIKObj.id)!
+                  return (
+                    <div className="ui-stack" style={{ gap: 10 }}>
+                      <div className="ui-row-item">
+                        <span className="graph-page__meta-label">Severity</span>
+                        <SeverityBadge severity={n.severity} />
+                      </div>
+                      <div className="ui-row-item">
+                        <span className="graph-page__meta-label">Impact Score</span>
+                        <span className="graph-page__meta-value" style={{ color: '#EF4444' }}>{n.impactScore.toFixed(1)}/100</span>
+                      </div>
+                      <div className="ui-row-item">
+                        <span className="graph-page__meta-label">Affected At</span>
+                        <span className="graph-page__meta-value" style={{ color: '#F59E0B' }}>{n.affectedAt} min</span>
+                      </div>
+                      <div className="ui-row-item">
+                        <span className="graph-page__meta-label">Cascade Depth</span>
+                        <span className="graph-page__meta-value">{n.depth}</span>
+                      </div>
+                      <div className="ui-panel" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
+                        <div className="graph-page__meta-label" style={{ marginBottom: 6 }}>Via</div>
+                        <div className="graph-page__meta-value">{n.via.join(' → ') || 'bezpośredni'}</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </Card>
+            )}
+
+            <Card label="DEPENDENCIES">
+              <div className="ui-stack" style={{ gap: 8 }}>
+                {selectedIKObj.dependencies.map(depId => {
+                  const dep = ikObjects.find(o => o.id === depId)
+                  if (!dep) return null
+                  return (
+                    <div key={depId} className="ui-row-item" style={{ justifyContent: 'flex-start', gap: 12 }}>
+                      <div className="graph-page__dep-dot" style={{ background: statusColor(dep.status) }} />
+                      <span className="graph-page__meta-value">{dep.shortName}</span>
+                      <span className="graph-page__meta-label">→ {selectedIKObj.shortName}</span>
+                    </div>
+                  )
+                })}
+                {selectedIKObj.dependencies.length === 0 && (
+                  <div className="ui-panel" style={{ padding: '14px 16px', color: '#66778B', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    Brak zależności (węzeł źródłowy)
                   </div>
-                )
-              })}
-              {selectedIKObj.dependencies.length === 0 && (
-                <span className="text-[10px] font-mono text-[#66778B]">Brak zależności (węzeł źródłowy)</span>
-              )}
-            </div>
-          </Card>
-        </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        </aside>
+      ) : (
+        <aside className="graph-page__sidebar graph-page__sidebar--empty">
+          <div className="graph-page__empty">
+            <div className="graph-page__empty-title">DEPENDENCY GRAPH</div>
+            <p>Kliknij węzeł na grafie, aby zobaczyć szczegóły obiektu IK, dane kaskady i zależności.</p>
+          </div>
+        </aside>
       )}
     </div>
   )

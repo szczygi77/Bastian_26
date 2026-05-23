@@ -4,17 +4,50 @@ import { fileURLToPath } from 'url'
 
 const APP_NAME = 'BASTION'
 
+// macOS: nazwa w Dock/menu musi być ustawiona przed app.ready (w dev nadal „Electron” bez override).
+if (process.platform === 'darwin') {
+  app.setName(APP_NAME)
+}
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:3000'
 
-const iconPath = path.join(__dirname, '../public/icon.png')
+function resolveIconPath(): string {
+  const icns = path.join(__dirname, '../public/icon.icns')
+  const png = path.join(__dirname, '../public/icon.png')
+  if (process.platform === 'darwin') {
+    try {
+      const icnsIcon = nativeImage.createFromPath(icns)
+      if (!icnsIcon.isEmpty()) return icns
+    } catch {
+      // fallback png
+    }
+  }
+  return png
+}
+
+const iconPath = resolveIconPath()
+
+function loadDockIcon(): ReturnType<typeof nativeImage.createFromPath> {
+  const image = nativeImage.createFromPath(iconPath)
+  if (image.isEmpty()) return image
+
+  const { width, height } = image.getSize()
+  if (width === height) return image
+
+  const side = Math.max(width, height)
+  return image.resize({ width: side, height: side, quality: 'best' })
+}
 
 function applyAppIdentity() {
   app.setName(APP_NAME)
 
   if (process.platform === 'darwin' && app.dock) {
-    app.dock.setIcon(nativeImage.createFromPath(iconPath))
+    const dockIcon = loadDockIcon()
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon)
+    }
   }
 }
 

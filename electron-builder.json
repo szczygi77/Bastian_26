@@ -11,7 +11,7 @@
   "mac": {
     "target": ["dmg"],
     "category": "public.app-category.utilities",
-    "icon": "public/icon.png"
+    "icon": "public/icon.icns"
   },
   "win": {
     "target": ["nsis"],

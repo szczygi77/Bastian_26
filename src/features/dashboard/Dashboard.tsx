@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { GitBranch, Activity, AlertTriangle, Cpu, Radio, Zap, Server, Wifi, Droplets, Network, Zap as EnergyIcon } from 'lucide-react'
+import { GitBranch, Activity, AlertTriangle, Cpu, Radio, Zap, Server, Wifi, Droplets, Network, Zap as EnergyIcon, Shield } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { SectionHeader } from '@/components/ui/Card'
 import { SeverityBadge, StatusBadge } from '@/components/ui/Badge'
@@ -12,6 +12,49 @@ import { Alert } from '@/components/ui/Alert'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/Accordion'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
+import type { IKCategory, IKObject, ObjectStatus } from '@/types'
+
+function ikStatusToCardStatus(status: ObjectStatus): 'critical' | 'warning' | 'ok' | 'nominal' {
+  if (status === 'operational') return 'nominal'
+  if (status === 'degraded') return 'warning'
+  if (status === 'offline' || status === 'under_attack') return 'critical'
+  return 'ok'
+}
+
+const CATEGORY_ICONS: Record<IKCategory, typeof EnergyIcon> = {
+  energy: EnergyIcon,
+  water: Droplets,
+  transport: GitBranch,
+  telecommunications: Network,
+  military: Shield,
+  emergency: AlertTriangle,
+  government: Server,
+  fuel: Zap,
+}
+
+function buildFeaturedObjects(objects: IKObject[]) {
+  const candidates = [
+    objects.find(o => o.criticality >= 4),
+    objects.find(o => o.category === 'water'),
+    objects.find(o => o.status === 'degraded') ?? objects.find(o => o.category === 'telecommunications'),
+  ]
+
+  const seen = new Set<string>()
+  return candidates
+    .filter((obj): obj is IKObject => {
+      if (!obj || seen.has(obj.id)) return false
+      seen.add(obj.id)
+      return true
+    })
+    .slice(0, 3)
+    .map(obj => ({
+      objectId: obj.id,
+      label: obj.shortName,
+      title: obj.name,
+      status: ikStatusToCardStatus(obj.status),
+      icon: CATEGORY_ICONS[obj.category] ?? Network,
+    }))
+}
 
 /* ── Threat gauge ──────────────────────────────────────────────────────────── */
 function ThreatGauge({ level }: { level: number }) {
@@ -164,11 +207,7 @@ export function Dashboard() {
 
   const topCriticalAlert = activeAlerts.find(a => a.severity === 'critical')
 
-  const featuredObjects = [
-    { id: ikObjects.find(o => o.criticality >= 4)?.id ?? 'PL-ENRG-WS-0421', title: 'Stacja transformatorowa', status: 'critical' as const, icon: EnergyIcon },
-    { id: ikObjects.find(o => o.category === 'water')?.id ?? 'PL-WATR-KR-0098', title: 'Ujęcie wody', status: 'nominal' as const, icon: Droplets },
-    { id: ikObjects.find(o => o.status === 'degraded')?.id ?? 'PL-TELE-GD-0312', title: 'Węzeł światłowodowy', status: 'warning' as const, icon: Network },
-  ]
+  const featuredObjects = buildFeaturedObjects(ikObjects)
 
   return (
     <div className="page-content tactical-grid">
@@ -547,7 +586,7 @@ export function Dashboard() {
         <TabsContent value="objects">
           <div className="ui-grid ui-grid-3">
             {featuredObjects.map(obj => (
-              <ObjectCard key={obj.id} {...obj} />
+              <ObjectCard key={obj.objectId} {...obj} />
             ))}
           </div>
         </TabsContent>

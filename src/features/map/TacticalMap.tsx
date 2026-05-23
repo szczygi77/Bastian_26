@@ -1,28 +1,28 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import L from 'leaflet'
 import { useAppStore } from '@/store/useAppStore'
-import { statusColor, criticalityLabel } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Switch } from '@/components/ui/Switch'
-import { StatusBadge } from '@/components/ui/Badge'
 import { fetchWeather } from '@/adapters/weatherAdapter'
 import { fetchOpenSkyFlights } from '@/adapters/openskyAdapter'
 import { fetchFIRMSAlerts } from '@/adapters/firmsAdapter'
 import { envConfig } from '@/config/env'
 import { MAP_LAYERS } from '@/config/mapLayers'
 import type { FIRMSAlert, IKObject, WeatherData, OpenSkyFlight } from '@/types'
+import { createIkMarkerHtml, createIkTooltipHtml } from '@/features/map/ikMapMarkers'
+import { IkObjectDetailPanel } from '@/features/map/IkObjectDetailPanel'
+import { prefetchAllIkObjectMedia } from '@/hooks/useIkObjectMedia'
+import { getCachedIkObjectMedia, subscribeIkObjectMedia } from '@/services/objectMediaService'
 
-function createIKMarker(obj: IKObject, isAffected: boolean): L.CircleMarker {
-  const color = isAffected ? '#EF4444' : statusColor(obj.status)
-  const radius = 6 + obj.criticality * 1.5
-
-  return L.circleMarker([obj.coordinates[0], obj.coordinates[1]], {
-    radius,
-    fillColor: color,
-    color: isAffected ? '#EF4444' : 'rgba(255,255,255,0.3)',
-    weight: isAffected ? 2 : 1,
-    fillOpacity: 0.85,
-    opacity: 1,
+function createIKMarker(obj: IKObject, isAffected: boolean): L.Marker {
+  return L.marker([obj.coordinates[0], obj.coordinates[1]], {
+    icon: L.divIcon({
+      html: createIkMarkerHtml(obj, isAffected),
+      className: 'map-ik-marker-wrap',
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    }),
+    zIndexOffset: isAffected ? 1000 : obj.criticality * 100,
   })
 }
 
@@ -38,21 +38,29 @@ interface LayerControls {
 export function TacticalMap() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<L.Map | null>(null)
-  const markersRef = useRef<L.CircleMarker[]>([])
+  const markersRef = useRef<L.Marker[]>([])
+  const ikMarkersByIdRef = useRef<Map<string, L.Marker>>(new Map())
   const linesRef = useRef<L.Polyline[]>([])
   const zonesRef = useRef<L.Circle[]>([])
   const flightMarkersRef = useRef<L.Marker[]>([])
   const fireMarkersRef = useRef<L.CircleMarker[]>([])
+  const droneMarkersRef = useRef<L.Marker[]>([])
+  const droneRoutesRef = useRef<L.Polyline[]>([])
   const baseLayersRef = useRef<Record<string, L.TileLayer>>({})
 
   const {
     ikObjects,
     cascadeResult,
     drones,
+    missions,
     mapCenter,
     ikLocationsResolved,
     ikLocationsLoading,
     loadIkLocations,
+    focusedIkObjectId,
+    setFocusedIkObjectId,
+    focusedDroneMissionId,
+    setFocusedDroneMissionId,
   } = useAppStore()
   const boundsFittedRef = useRef(false)
 
@@ -69,6 +77,15 @@ export function TacticalMap() {
   const [fires, setFires] = useState<FIRMSAlert[]>([])
   const [selectedObj, setSelectedObj] = useState<IKObject | null>(null)
   const [loading, setLoading] = useState(false)
+  const [ikMediaVersion, setIkMediaVersion] = useState(0)
+
+  useEffect(() => {
+    prefetchAllIkObjectMedia(ikObjects)
+  }, [ikObjects])
+
+  useEffect(() => {
+    return subscribeIkObjectMedia(() => setIkMediaVersion(v => v + 1))
+  }, [])
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
@@ -106,6 +123,7 @@ export function TacticalMap() {
 
     markersRef.current.forEach(m => m.remove())
     markersRef.current = []
+    ikMarkersByIdRef.current.clear()
     linesRef.current.forEach(l => l.remove())
     linesRef.current = []
     zonesRef.current.forEach(z => z.remove())
@@ -117,20 +135,19 @@ export function TacticalMap() {
 
     for (const obj of ikObjects) {
       const isAffected = affectedIds.has(obj.id)
+      const cachedMedia = getCachedIkObjectMedia(obj.id)
       const marker = createIKMarker(obj, isAffected)
         .addTo(map)
-        .bindTooltip(
-          `<div style="font-family:monospace;font-size:11px;color:#E6EDF3">
-            <b>${obj.shortName}</b> — ${obj.name}<br/>
-            Status: ${obj.status}<br/>
-            Criticality: ${criticalityLabel(obj.criticality)}<br/>
-            UPS: ${obj.backupPowerHours}h
-          </div>`,
-          { className: 'leaflet-bastion-tooltip' }
-        )
+        .bindTooltip(createIkTooltipHtml(obj, cachedMedia), {
+          className: 'leaflet-bastion-tooltip leaflet-bastion-tooltip--rich',
+          direction: 'top',
+          opacity: 1,
+          offset: [0, -18],
+        })
         .on('click', () => setSelectedObj(obj))
 
       markersRef.current.push(marker)
+      ikMarkersByIdRef.current.set(obj.id, marker)
 
       // Impact zones
       if (layers.impactZones && isAffected) {
@@ -169,6 +186,15 @@ export function TacticalMap() {
     }
   }, [ikObjects, cascadeResult, layers])
 
+  useEffect(() => {
+    for (const obj of ikObjects) {
+      const marker = ikMarkersByIdRef.current.get(obj.id)
+      const cachedMedia = getCachedIkObjectMedia(obj.id)
+      if (!marker || !cachedMedia) continue
+      marker.setTooltipContent(createIkTooltipHtml(obj, cachedMedia))
+    }
+  }, [ikMediaVersion, ikObjects])
+
   // Dopasuj widok mapy po geokodowaniu obiektów IK z OSM
   useEffect(() => {
     const map = mapInstance.current
@@ -178,6 +204,81 @@ export function TacticalMap() {
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 })
     boundsFittedRef.current = true
   }, [ikObjects, ikLocationsResolved])
+
+  useEffect(() => {
+    if (!focusedIkObjectId) return
+    const obj = ikObjects.find(o => o.id === focusedIkObjectId)
+    if (!obj) {
+      setFocusedIkObjectId(null)
+      return
+    }
+
+    setSelectedObj(obj)
+
+    const map = mapInstance.current
+    if (map) {
+      map.flyTo(obj.coordinates, 15, { duration: 0.8 })
+    }
+
+    setFocusedIkObjectId(null)
+  }, [focusedIkObjectId, ikObjects, setFocusedIkObjectId])
+
+  const activeMissions = missions.filter(m => m.status !== 'completed')
+
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    droneMarkersRef.current.forEach(m => m.remove())
+    droneRoutesRef.current.forEach(l => l.remove())
+    droneMarkersRef.current = []
+    droneRoutesRef.current = []
+
+    for (const mission of activeMissions) {
+      const drone = drones.find(d => d.id === mission.droneId)
+      if (!drone) continue
+
+      const route = L.polyline(
+        [mission.routeOrigin, mission.targetCoordinates],
+        { color: 'rgba(0,229,255,0.35)', weight: 2, dashArray: '5 7' },
+      ).addTo(map)
+      droneRoutesRef.current.push(route)
+
+      const icon = L.divIcon({
+        html: `<div class="map-drone-marker">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>`,
+        className: 'map-drone-marker-wrap',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      })
+
+      const marker = L.marker(mission.currentPosition, { icon, zIndexOffset: 2000 })
+        .addTo(map)
+        .bindTooltip(
+          `<div><b>${drone.model}</b><br/>${mission.type.replace(/_/g, ' ')} · ${mission.progressPercent.toFixed(0)}%<br/>${mission.status.replace(/_/g, ' ').toUpperCase()}</div>`,
+          { className: 'leaflet-bastion-tooltip', direction: 'top', opacity: 1 },
+        )
+      droneMarkersRef.current.push(marker)
+    }
+  }, [activeMissions, drones])
+
+  useEffect(() => {
+    if (!focusedDroneMissionId) return
+    const mission = missions.find(m => m.id === focusedDroneMissionId)
+    if (!mission) {
+      setFocusedDroneMissionId(null)
+      return
+    }
+
+    const map = mapInstance.current
+    if (map) {
+      map.flyTo(mission.currentPosition, 15, { duration: 0.8 })
+    }
+    setFocusedDroneMissionId(null)
+  }, [focusedDroneMissionId, missions, setFocusedDroneMissionId])
 
   // Aviation layer
   const loadFlights = useCallback(async () => {
@@ -205,13 +306,22 @@ export function TacticalMap() {
     if (!layers.aviation) return
     for (const f of flights) {
       const icon = L.divIcon({
-        html: `<div style="color:#00E5FF;font-size:14px;transform:rotate(${f.heading}deg)">✈</div>`,
-        className: '',
-        iconSize: [16, 16],
+        html: `<div class="map-flight-icon" style="transform:rotate(${f.heading}deg)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+          </svg>
+        </div>`,
+        className: 'map-flight-marker',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
       })
       const m = L.marker([f.latitude, f.longitude], { icon })
         .addTo(map)
-        .bindTooltip(`${f.callsign || f.icao24} · ${Math.round(f.altitude)}m · ${Math.round(f.velocity)}km/h`)
+        .bindTooltip(`${f.callsign || f.icao24} · ${Math.round(f.altitude)}m · ${Math.round(f.velocity)}km/h`, {
+          className: 'leaflet-bastion-tooltip',
+          direction: 'top',
+          opacity: 1,
+        })
       flightMarkersRef.current.push(m)
     }
   }, [flights, layers.aviation])
@@ -249,7 +359,8 @@ export function TacticalMap() {
       })
         .addTo(map)
         .bindTooltip(
-          `FIRMS · ${fire.instrument}<br/>Conf: ${fire.confidence}% · ${fire.brightness}K`
+          `FIRMS · ${fire.instrument}<br/>Conf: ${fire.confidence}% · ${fire.brightness}K`,
+          { className: 'leaflet-bastion-tooltip', direction: 'top', opacity: 1 },
         )
       fireMarkersRef.current.push(m)
     }
@@ -306,54 +417,26 @@ export function TacticalMap() {
 
         {/* Object detail panel */}
         {selectedObj && (
-          <div className="absolute top-4 right-4 w-72 glass-strong rounded-[14px] p-4 border border-white/12 z-[1000]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[12px] font-mono font-bold text-[#00E5FF] uppercase">{selectedObj.shortName}</div>
-              <button onClick={() => setSelectedObj(null)} className="text-[#66778B] hover:text-[#94A3B8] text-xs">✕</button>
-            </div>
-            <div className="space-y-2 text-[11px] font-mono">
-              <div className="flex justify-between">
-                <span className="text-[#66778B]">Status</span>
-                <StatusBadge status={selectedObj.status} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#66778B]">Criticality</span>
-                <span className="text-[#E6EDF3]">{criticalityLabel(selectedObj.criticality)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#66778B]">Backup Power</span>
-                <span className="text-[#E6EDF3]">{selectedObj.backupPowerHours}h</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#66778B]">Recovery</span>
-                <span className="text-[#E6EDF3]">{selectedObj.recoveryTimeHours}h</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#66778B]">Contact</span>
-                <span className="text-[#94A3B8] text-right">{selectedObj.contactChannel}</span>
-              </div>
-              <div className="pt-2 border-t border-white/[0.06]">
-                <div className="text-[#66778B] mb-1">Risk Profile</div>
-                {Object.entries(selectedObj.riskProfile).map(([k, v]) => (
-                  <div key={k} className="flex items-center gap-2 mb-1">
-                    <span className="text-[#66778B] w-14 capitalize">{k}</span>
-                    <div className="flex-1 h-1 bg-white/5 rounded">
-                      <div className="h-full bg-[#EF4444] rounded" style={{ width: `${v}%` }} />
-                    </div>
-                    <span className="text-[#94A3B8] w-7">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <IkObjectDetailPanel object={selectedObj} onClose={() => setSelectedObj(null)} />
         )}
 
         {/* Active drones on map indicator */}
-        {drones.filter(d => d.status === 'on_mission').length > 0 && (
-          <div className="absolute bottom-4 left-4 glass rounded-[14px] px-3 py-2 border border-[#00E5FF]/20 z-[1000]">
-            <span className="text-[10px] font-mono text-[#00E5FF]">
-              {drones.filter(d => d.status === 'on_mission').length} DRONES ON MISSION
-            </span>
+        {activeMissions.length > 0 && (
+          <div className="absolute bottom-4 left-4 glass-panel ui-panel z-[1000]" style={{ padding: '14px 16px', maxWidth: 320 }}>
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#00E5FF] mb-2">
+              DRONY W MISJI ({activeMissions.length})
+            </div>
+            <div className="ui-stack" style={{ gap: 8 }}>
+              {activeMissions.map(mission => {
+                const drone = drones.find(d => d.id === mission.droneId)
+                return (
+                  <div key={mission.id} className="text-[10px] font-mono text-[#94A3B8]">
+                    <span className="text-[#00E5FF]">{drone?.model ?? mission.droneId}</span>
+                    {' · '}{mission.progressPercent.toFixed(0)}% · {mission.status.replace(/_/g, ' ')}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

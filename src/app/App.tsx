@@ -15,6 +15,8 @@ import { AuditLog } from '@/features/audit/AuditLog'
 import { ComplianceCenter } from '@/features/compliance/ComplianceCenter'
 import { SystemStatus } from '@/features/system/SystemStatus'
 import { ReportGenerator } from '@/features/reports/ReportGenerator'
+import { initDatabase, hydrateFromDatabase, flushSyncQueue } from '@/services/databaseService'
+import { setAuditLog } from '@/services/auditLogService'
 
 const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
@@ -31,16 +33,27 @@ const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
 }
 
 export default function App() {
-  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations } = useAppStore()
+  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations, hydrateDatabase } = useAppStore()
 
   useEffect(() => {
     document.title = APP_NAME
   }, [])
 
   useEffect(() => {
+    void (async () => {
+      await initDatabase()
+      const data = await hydrateFromDatabase()
+      hydrateDatabase(data)
+      setAuditLog(data.auditEntries)
+      await flushSyncQueue()
+      refreshSystemHealth()
+    })()
+  }, [hydrateDatabase, refreshSystemHealth])
+
+  useEffect(() => {
     const handleOnline = () => {
       setOnline(true)
-      refreshSystemHealth()
+      void flushSyncQueue().then(() => refreshSystemHealth())
       loadIkLocations()
     }
     const handleOffline = () => {

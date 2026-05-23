@@ -19,6 +19,11 @@ export const envConfig = {
   openskyUsername: env('VITE_OPENSKY_USERNAME'),
   openskyPassword: env('VITE_OPENSKY_PASSWORD'),
   openAiApiKey: env('VITE_OPENAI_API_KEY'),
+  /** Google Maps — Street View / satelita dla podglądu obiektów IK */
+  googleMapsApiKey: env('VITE_GOOGLE_MAPS_API_KEY'),
+  /** Supabase — baza danych chmurowa (sync) */
+  supabaseUrl: env('VITE_SUPABASE_URL'),
+  supabaseAnonKey: env('VITE_SUPABASE_ANON_KEY'),
 } as const
 
 export function hasCdseCredentials(): boolean {
@@ -30,4 +35,12 @@ export function hasOpenSkyAuth(): boolean {
     envConfig.openskyBearerToken ||
       (envConfig.openskyUsername && envConfig.openskyPassword)
   )
+}
+
+export function hasGoogleMapsApiKey(): boolean {
+  return Boolean(envConfig.googleMapsApiKey)
+}
+
+export function hasSupabaseConfig(): boolean {
+  return Boolean(envConfig.supabaseUrl && envConfig.supabaseAnonKey)
 }

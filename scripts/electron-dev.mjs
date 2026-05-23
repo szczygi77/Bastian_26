@@ -43,6 +43,7 @@ setTimeout(() => {
         ...process.env,
         VITE_DEV_SERVER_URL: 'http://localhost:3000',
         NODE_ENV: 'development',
+        ELECTRON_OVERRIDE_APP_NAME: 'BASTION',
       }
     }
   )

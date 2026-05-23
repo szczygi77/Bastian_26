@@ -1,7 +1,12 @@
 import type { AuditEntry, AuditAction, SystemMode } from '@/types'
 import { generateId } from '@/utils/format'
+import { saveAuditEntry } from '@/services/databaseService'
 
 let inMemoryLog: AuditEntry[] = []
+
+export function setAuditLog(entries: AuditEntry[]): void {
+  inMemoryLog = [...entries]
+}
 
 export function logAction(params: {
   operator: string
@@ -34,6 +39,7 @@ export function logAction(params: {
   }
 
   inMemoryLog = [entry, ...inMemoryLog]
+  void saveAuditEntry(entry).catch(() => {})
   return entry
 }
 

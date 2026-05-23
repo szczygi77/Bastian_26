@@ -1,5 +1,6 @@
 import type { DroneUnit, MissionType, DroneAssignmentScore, DroneMission, IKObject } from '@/types'
 import { generateId } from '@/utils/format'
+import { initializeMissionActivities } from '@/services/missionSimulation'
 
 const MISSION_PAYLOAD_MAP: Record<MissionType, string[]> = {
   reconnaissance: ['RGB camera', 'zoom lens'],
@@ -78,27 +79,35 @@ export function assignBestDrone(
   operatorId: string
 ): { mission: DroneMission; drone: DroneUnit } | null {
   const scores = scoreDrones(drones, missionType, targetObject.coordinates)
-  const best = scores.filter(s => s.recommended).sort((a, b) => b.totalScore - a.totalScore)[0]
+  const best = scores
+    .filter(s => s.totalScore > 0)
+    .sort((a, b) => b.totalScore - a.totalScore)[0]
 
-  if (!best) return null
+  if (!best || best.totalScore === 0) return null
 
   const drone = drones.find(d => d.id === best.droneId)!
   const distanceKm = haversineKm(drone.coordinates, targetObject.coordinates)
   const speedKmh = 60
-  const estimatedArrivalMin = Math.ceil((distanceKm / speedKmh) * 60)
+  const estimatedArrivalMin = Math.max(2, Math.ceil((distanceKm / speedKmh) * 60))
 
-  const mission: DroneMission = {
+  const mission: DroneMission = initializeMissionActivities({
     id: `mission-${generateId()}`,
     droneId: drone.id,
     type: missionType,
     targetObjectId: targetObject.id,
+    targetName: targetObject.name,
+    targetShortName: targetObject.shortName,
     targetCoordinates: targetObject.coordinates,
     assignedAt: new Date(),
     estimatedArrivalMin,
     status: 'dispatched',
     incidentId,
     operatorId,
-  }
+    routeOrigin: [...drone.coordinates],
+    currentPosition: [...drone.coordinates],
+    progressPercent: 0,
+    onSiteTicks: 0,
+  }, targetObject)
 
   return { mission, drone }
 }

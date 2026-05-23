@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, Check, ArrowUpRight, X, Download, Filter, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
@@ -16,16 +16,24 @@ import type { Alert as AlertType } from '@/types'
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
 
 export function AlertCenter() {
-  const { alerts, updateAlert, operator, mode, addAuditEntry } = useAppStore()
+  const { alerts, updateAlert, operator, mode, addAuditEntry, focusedIkObjectId, setFocusedIkObjectId } = useAppStore()
   const { toast } = useToast()
   const [selected, setSelected] = useState<AlertType | null>(null)
   const [filterSeverity, setFilterSeverity] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [objectFilter, setObjectFilter] = useState<string | null>(null)
   const [escalateModal, setEscalateModal] = useState(false)
+
+  useEffect(() => {
+    if (!focusedIkObjectId) return
+    setObjectFilter(focusedIkObjectId)
+    setFocusedIkObjectId(null)
+  }, [focusedIkObjectId, setFocusedIkObjectId])
 
   const filtered = alerts
     .filter(a => filterSeverity === 'all' || a.severity === filterSeverity)
     .filter(a => filterStatus === 'all' || a.status === filterStatus)
+    .filter(a => !objectFilter || a.affectedNodes.includes(objectFilter))
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
 
   function acknowledge(alert: AlertType) {
@@ -97,6 +105,25 @@ export function AlertCenter() {
               onChange={setFilterStatus}
             />
           </div>
+          {objectFilter && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Badge variant="cyan">OBIEKT: {objectFilter}</Badge>
+              <button
+                type="button"
+                onClick={() => setObjectFilter(null)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#66778B',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                }}
+              >
+                Wyczyść filtr
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', padding: '8px 0' }}>
