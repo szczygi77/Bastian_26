@@ -3,6 +3,11 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const APP_NAME = 'BASTION'
+const APP_ID = 'pl.bastion.enterprise'
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_ID)
+}
 
 // macOS: nazwa w Dock/menu musi być ustawiona przed app.ready (w dev nadal „Electron” bez override).
 if (process.platform === 'darwin') {
@@ -52,13 +57,15 @@ function applyAppIdentity() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin'
+
   const win = new BrowserWindow({
     width: 1600,
     height: 1000,
     minWidth: 1280,
     minHeight: 800,
     backgroundColor: '#05070A',
-    titleBarStyle: 'hiddenInset',
+    ...(isMac ? { titleBarStyle: 'hiddenInset' as const } : { autoHideMenuBar: true }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -66,7 +73,10 @@ function createWindow() {
     },
     icon: iconPath,
     title: APP_NAME,
+    show: false,
   })
+
+  win.once('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
@@ -75,7 +85,9 @@ function createWindow() {
 
   if (process.env.NODE_ENV !== 'production' || VITE_DEV_SERVER_URL.startsWith('http')) {
     win.loadURL(VITE_DEV_SERVER_URL)
-    win.webContents.openDevTools({ mode: 'detach' })
+    if (process.env.NODE_ENV === 'development') {
+      win.webContents.openDevTools({ mode: 'detach' })
+    }
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }

@@ -28,6 +28,6 @@ export default defineConfig(async ({ command }) => {
     resolve: {
       alias: { '@': path.resolve(__dirname, './src') },
     },
-    server: { port: 3000 },
+    server: { port: 3000, strictPort: true, host: '127.0.0.1' },
   }
 })

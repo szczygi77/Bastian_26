@@ -8,13 +8,41 @@ Offline-first platforma świadomości sytuacyjnej infrastruktury krytycznej — 
 
 ## Uruchomienie
 
+Wymagania: **Node.js 20+**, npm 10+ (Windows / macOS / Linux).
+
 ```bash
-cp .env.example .env   # uzupełnij klucze CDSE (Sentinel) — plik .env nie trafia do gita
+cp .env.example .env   # uzupełnij klucze API — plik .env nie trafia do gita
 npm install
-npm run dev          # przeglądarka → http://localhost:3000
-npm run electron:dev # aplikacja desktop (Electron)
-npm run electron:build # build .app / .exe / .AppImage
 ```
+
+| Tryb | Komenda | Opis |
+|------|---------|------|
+| Przeglądarka | `npm run dev` | http://localhost:3000 |
+| Desktop (dev) | `npm start` lub `npm run electron:dev` | Electron + hot reload |
+| Instalator | `npm run electron:build` | `.dmg` (macOS), `.exe` (Windows), `.AppImage` / `.deb` (Linux) |
+
+### macOS
+```bash
+npm run electron:dev
+# build: npm run electron:build  →  release/BASTION-*.dmg
+# ikony Dock: npm run icons:generate  (wymaga python3 + Pillow, opcjonalnie iconutil)
+```
+
+### Windows (PowerShell / CMD)
+```powershell
+npm run electron:dev
+# build: npm run electron:build  →  release\BASTION-Setup-*.exe
+```
+
+### Linux
+```bash
+npm run electron:dev
+# build: npm run electron:build  →  release/BASTION-*.AppImage lub .deb
+# AppImage: chmod +x BASTION-*.AppImage && ./BASTION-*.AppImage
+```
+
+Na Linuxie, jeśli Electron nie startuje w dev, doinstaluj zależności GTK (np. Ubuntu/Debian):
+`sudo apt install libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64`
 
 W trybie **LIVE** aplikacja pobiera m.in. Open-Meteo, OpenSky, NASA FIRMS (opcjonalny klucz) oraz metadane Sentinel-1 z Copernicus Data Space (wymaga `VITE_CDSE_CLIENT_ID` i `VITE_CDSE_CLIENT_SECRET`).
 

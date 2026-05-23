@@ -10,8 +10,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "start": "node scripts/electron-dev.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
-    "electron:build": "ELECTRON=true npm run build && electron-builder",
+    "electron:build": "node scripts/electron-build.mjs",
     "icons:generate": "node scripts/generate-app-icon.mjs"
   },
   "dependencies": {

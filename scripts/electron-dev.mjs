@@ -1,55 +1,137 @@
 import { spawn, execFileSync } from 'child_process'
-import { fileURLToPath } from 'url'
-import path from 'path'
+import waitOn from 'wait-on'
+import {
+  isWindows,
+  resolveElectronExecutable,
+  resolveEsbuildExecutable,
+  resolveViteScript,
+  root,
+} from './platform.mjs'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const root = path.join(__dirname, '..')
+const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:3000'
+const DEV_SERVER_HOST = new URL(DEV_SERVER_URL).host
 
-// 1. Build electron main with esbuild binary
-console.log('[BASTION] Building Electron main...')
-try {
-  execFileSync(
-    path.join(root, 'node_modules', '.bin', 'esbuild'),
-    [
-      'electron/main.ts', 'electron/preload.ts',
-      '--bundle=false', '--platform=node', '--target=node20',
-      '--outdir=dist-electron', '--format=esm',
-    ],
-    { cwd: root, stdio: 'inherit' }
-  )
-} catch (e) {
-  console.error('[BASTION] esbuild failed:', e.message)
-  process.exit(1)
+function buildElectronMain() {
+  console.log('[BASTION] Building Electron main...')
+  try {
+    execFileSync(
+      resolveEsbuildExecutable(),
+      [
+        'electron/main.ts',
+        'electron/preload.ts',
+        '--bundle=false',
+        '--platform=node',
+        '--target=node20',
+        '--outdir=dist-electron',
+        '--format=esm',
+      ],
+      { cwd: root, stdio: 'inherit' },
+    )
+  } catch (error) {
+    console.error('[BASTION] esbuild failed:', error instanceof Error ? error.message : error)
+    process.exit(1)
+  }
+  console.log('[BASTION] Electron main built OK.')
 }
 
-console.log('[BASTION] Electron main built OK.')
-
-// 2. Start Vite dev server
-console.log('[BASTION] Starting Vite dev server...')
-const vite = spawn(path.join(root, 'node_modules', '.bin', 'vite'), [], {
-  cwd: root, stdio: 'inherit',
-  env: { ...process.env, NODE_ENV: 'development' }
-})
-
-// 3. Wait 4s for Vite to be ready, then launch Electron
-setTimeout(() => {
-  console.log('[BASTION] Launching Electron...')
-  const electron = spawn(
-    path.join(root, 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron'),
-    ['.'],
-    {
-      cwd: root, stdio: 'inherit',
-      env: {
-        ...process.env,
-        VITE_DEV_SERVER_URL: 'http://localhost:3000',
-        NODE_ENV: 'development',
-        ELECTRON_OVERRIDE_APP_NAME: 'BASTION',
-      }
-    }
-  )
-
-  electron.on('close', () => {
-    vite.kill()
-    process.exit(0)
+function startVite() {
+  console.log('[BASTION] Starting Vite dev server...')
+  return spawn(process.execPath, [resolveViteScript()], {
+    cwd: root,
+    stdio: 'inherit',
+    env: { ...process.env, NODE_ENV: 'development' },
+    shell: false,
   })
-}, 4000)
+}
+
+function startElectron() {
+  console.log('[BASTION] Launching Electron...')
+  const electronPath = resolveElectronExecutable()
+  const electronEnv = {
+    ...process.env,
+    VITE_DEV_SERVER_URL: DEV_SERVER_URL,
+    NODE_ENV: 'development',
+    ELECTRON_OVERRIDE_APP_NAME: 'BASTION',
+  }
+
+  return spawn(electronPath, ['.'], {
+    cwd: root,
+    stdio: 'inherit',
+    env: electronEnv,
+    shell: false,
+  })
+}
+
+function killProcess(child, label) {
+  if (!child || child.killed) return
+  try {
+    if (isWindows) {
+      spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore', shell: true })
+    } else {
+      child.kill('SIGTERM')
+    }
+  } catch {
+    console.warn(`[BASTION] Could not stop ${label}`)
+  }
+}
+
+async function main() {
+  buildElectronMain()
+
+  const vite = startVite()
+  let electron = null
+  let shuttingDown = false
+
+  const shutdown = (code = 0) => {
+    if (shuttingDown) return
+    shuttingDown = true
+    killProcess(electron, 'Electron')
+    killProcess(vite, 'Vite')
+    process.exit(code)
+  }
+
+  process.on('SIGINT', () => shutdown(0))
+  process.on('SIGTERM', () => shutdown(0))
+
+  vite.on('error', error => {
+    console.error('[BASTION] Vite failed:', error)
+    shutdown(1)
+  })
+
+  vite.on('exit', code => {
+    if (!shuttingDown) {
+      console.log(`[BASTION] Vite exited (${code ?? 0})`)
+      shutdown(code ?? 0)
+    }
+  })
+
+  try {
+    await waitOn({
+      resources: [`http-get://${DEV_SERVER_HOST}`],
+      timeout: 90_000,
+      interval: 250,
+      window: 1000,
+    })
+  } catch (error) {
+    console.error('[BASTION] Vite dev server did not start in time:', error)
+    shutdown(1)
+    return
+  }
+
+  electron = startElectron()
+
+  electron.on('close', code => {
+    console.log(`[BASTION] Electron closed (${code ?? 0})`)
+    shutdown(code ?? 0)
+  })
+
+  electron.on('error', error => {
+    console.error('[BASTION] Electron failed:', error)
+    shutdown(1)
+  })
+}
+
+main().catch(error => {
+  console.error('[BASTION] Dev launcher failed:', error)
+  process.exit(1)
+})
