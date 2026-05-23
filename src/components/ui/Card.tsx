@@ -29,7 +29,7 @@ export function Card({ children, className, label, accent, onClick, interactive,
       className={cn('glass-panel', className)}
       style={{
         borderRadius: 16,
-        padding: noPad ? 0 : 20,
+        padding: noPad ? 0 : 22,
         overflow: 'hidden',
         position: 'relative',
         cursor: onClick || interactive ? 'pointer' : undefined,
@@ -37,7 +37,7 @@ export function Card({ children, className, label, accent, onClick, interactive,
         ...(accent && accentStyle
           ? {
               borderLeft: `2px solid ${accentStyle.color}`,
-              paddingLeft: noPad ? 0 : 22,
+              paddingLeft: noPad ? 0 : 24,
             }
           : {}),
       }}
@@ -83,7 +83,7 @@ export function Card({ children, className, label, accent, onClick, interactive,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
             color: '#66778B',
-            marginBottom: 14,
+            marginBottom: 16,
           }}
         >
           {label}

@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { ToastProvider } from '@/components/ui/Toast'
+import { APP_NAME } from '@/config/app'
 import { useAppStore } from '@/store/useAppStore'
 import { LoginPage } from '@/pages/LoginPage'
 import { AppLayout } from '@/layouts/AppLayout'
@@ -32,8 +34,19 @@ export default function App() {
   const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations } = useAppStore()
 
   useEffect(() => {
-    const handleOnline = () => { setOnline(true); refreshSystemHealth(); loadIkLocations() }
-    const handleOffline = () => { setOnline(false); refreshSystemHealth() }
+    document.title = APP_NAME
+  }, [])
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setOnline(true)
+      refreshSystemHealth()
+      loadIkLocations()
+    }
+    const handleOffline = () => {
+      setOnline(false)
+      refreshSystemHealth()
+    }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
@@ -46,13 +59,21 @@ export default function App() {
     if (operator) loadIkLocations()
   }, [operator, loadIkLocations])
 
-  if (!operator) return <LoginPage />
+  if (!operator) {
+    return (
+      <ToastProvider>
+        <LoginPage />
+      </ToastProvider>
+    )
+  }
 
   const ActiveView = VIEW_COMPONENTS[activeView] ?? Dashboard
 
   return (
-    <AppLayout>
-      <ActiveView />
-    </AppLayout>
+    <ToastProvider>
+      <AppLayout>
+        <ActiveView />
+      </AppLayout>
+    </ToastProvider>
   )
 }

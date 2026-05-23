@@ -4,7 +4,9 @@ import {
   FileText, Shield, Activity, FileOutput, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { BrandLogo } from '@/components/BrandLogo'
 import { useAppStore } from '@/store/useAppStore'
+import { useElectronShell } from '@/hooks/useElectronShell'
 
 const NAV_GROUPS = [
   {
@@ -37,11 +39,12 @@ const NAV_GROUPS = [
 
 export function Sidebar() {
   const { activeView, setActiveView, sidebarExpanded, setSidebarExpanded, alerts } = useAppStore()
+  const { chromeHeaderHeight, sidebarCollapsedWidth } = useElectronShell()
   const activeAlerts = alerts.filter(a => a.status === 'active').length
 
   return (
     <motion.aside
-      animate={{ width: sidebarExpanded ? 280 : 64 }}
+      animate={{ width: sidebarExpanded ? 280 : sidebarCollapsedWidth }}
       transition={{ duration: 0.24, ease: 'easeOut' }}
       style={{
         flexShrink: 0,
@@ -58,104 +61,24 @@ export function Sidebar() {
     >
       {/* ── Logo ─────────────────────────────────────────────────────── */}
       <div
+        className="window-drag"
         style={{
           display: 'flex',
           alignItems: 'center',
-          height: 48,
-          padding: sidebarExpanded ? '0 16px' : '0 16px',
+          justifyContent: 'center',
+          height: chromeHeaderHeight,
+          padding: '0 14px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           flexShrink: 0,
-          gap: 12,
           overflow: 'hidden',
         }}
       >
-        {/* Hexagonal badge */}
-        <div
-          style={{
-            flexShrink: 0,
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255,138,31,0.10)',
-            border: '1px solid rgba(255,138,31,0.35)',
-            boxShadow: '0 0 14px rgba(255,138,31,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
-            position: 'relative',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#FF8A1F',
-              letterSpacing: '-0.01em',
-              textShadow: '0 0 8px rgba(255,138,31,0.6)',
-            }}
-          >B</span>
-          {/* Corner notches */}
-          {[
-            'top: -1px; left: -1px; border-top-left-radius: 3px;',
-            'top: -1px; right: -1px; border-top-right-radius: 3px;',
-            'bottom: -1px; left: -1px; border-bottom-left-radius: 3px;',
-            'bottom: -1px; right: -1px; border-bottom-right-radius: 3px;',
-          ].map((_, i) => (
-            <span
-              key={i}
-              style={{
-                position: 'absolute',
-                width: 6,
-                height: 6,
-                border: '1px solid rgba(255,138,31,0.45)',
-                borderRadius: 2,
-                ...(i === 0 && { top: -1, left: -1 }),
-                ...(i === 1 && { top: -1, right: -1 }),
-                ...(i === 2 && { bottom: -1, left: -1 }),
-                ...(i === 3 && { bottom: -1, right: -1 }),
-              }}
-            />
-          ))}
-        </div>
-
-        <AnimatePresence>
-          {sidebarExpanded && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              style={{ overflow: 'hidden', flexShrink: 0 }}
-            >
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: '#E6EDF3',
-                  letterSpacing: '0.20em',
-                  lineHeight: 1,
-                }}
-              >
-                BASTION
-              </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 8,
-                  color: '#3D5060',
-                  letterSpacing: '0.22em',
-                  marginTop: 3,
-                  lineHeight: 1,
-                  textTransform: 'uppercase',
-                }}
-              >
-                ENTERPRISE v1.0
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <BrandLogo
+          className="window-no-drag"
+          variant={sidebarExpanded ? 'full' : 'icon'}
+          height={sidebarExpanded ? 64 : 42}
+          style={{ maxWidth: sidebarExpanded ? 220 : 46 }}
+        />
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────────── */}
@@ -164,10 +87,10 @@ export function Sidebar() {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '12px 8px',
+          padding: '16px 10px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 4,
+          gap: 6,
         }}
       >
         {NAV_GROUPS.map((group, gi) => (
@@ -187,7 +110,7 @@ export function Sidebar() {
                     letterSpacing: '0.22em',
                     textTransform: 'uppercase',
                     color: '#3D5060',
-                    padding: gi === 0 ? '2px 10px 6px' : '14px 10px 6px',
+                    padding: gi === 0 ? '4px 10px 8px' : '18px 10px 8px',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -207,7 +130,7 @@ export function Sidebar() {
               />
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {group.items.map(({ id, label, icon: Icon }) => {
                 const isActive = activeView === id
                 const hasBadge = id === 'alerts' && activeAlerts > 0
@@ -242,8 +165,8 @@ export function Sidebar() {
                     <div
                       style={{
                         flexShrink: 0,
-                        width: 16,
-                        height: 16,
+                        width: 18,
+                        height: 18,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -251,7 +174,7 @@ export function Sidebar() {
                       }}
                     >
                       <Icon
-                        size={15}
+                        size={17}
                         style={
                           isActive
                             ? { filter: 'drop-shadow(0 0 5px rgba(255,138,31,0.60))' }
@@ -293,9 +216,9 @@ export function Sidebar() {
                           transition={{ duration: 0.14 }}
                           style={{
                             fontFamily: 'var(--font-mono)',
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 500,
-                            letterSpacing: '0.10em',
+                            letterSpacing: '0.08em',
                             whiteSpace: 'nowrap',
                             color: isActive ? '#FF8A1F' : '#66778B',
                           }}
@@ -328,7 +251,7 @@ export function Sidebar() {
             alignItems: 'center',
             justifyContent: sidebarExpanded ? 'flex-end' : 'center',
             gap: 8,
-            padding: '7px 10px',
+            padding: '10px 12px',
             borderRadius: 8,
             background: 'transparent',
             border: '1px solid transparent',

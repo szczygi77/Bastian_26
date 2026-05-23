@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { FileText, Download, Filter } from 'lucide-react'
+import { FileText, Download, Filter, Search } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { exportAuditLog } from '@/services/auditLogService'
 import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Input } from '@/components/ui/Input'
+import { FilterPills } from '@/components/ui/FilterPills'
+import { PageShell } from '@/components/layout/PageShell'
 import type { AuditAction } from '@/types'
 
 const ACTION_LABELS: Record<AuditAction, string> = {
@@ -54,66 +58,53 @@ export function AuditLog() {
   const severityColors = { info: 'text-[#94A3B8]', warning: 'text-[#F59E0B]', critical: 'text-[#EF4444]' }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <FileText size={16} className="text-[#00E5FF]" />
-          <div>
-            <h1 className="text-[13px] font-mono font-bold uppercase tracking-[0.15em] text-[#E6EDF3]">AUDIT LOG</h1>
-            <p className="text-[11px] font-mono text-[#66778B]">Immutable-style log · {auditEntries.length} wpisów · Retencja 5 lat (wymóg KSC)</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => handleExport('csv')}>
-            <Download size={11} /> CSV
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => handleExport('json')}>
-            <Download size={11} /> JSON
-          </Button>
-        </div>
-      </div>
+    <PageShell fixed>
+      <PageHeader
+        title="Audit Log"
+        subtitle={`Immutable-style log · ${auditEntries.length} wpisów · Retencja 5 lat (wymóg KSC)`}
+        icon={FileText}
+        actions={
+          <>
+            <Button variant="glass" size="sm" onClick={() => handleExport('csv')}>
+              <Download size={11} /> CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
+              <Download size={11} /> JSON
+            </Button>
+          </>
+        }
+      />
 
-      {/* Filters */}
-      <Card className="flex-shrink-0">
-        <div className="flex items-center gap-4 flex-wrap">
-          <Filter size={12} className="text-[#66778B]" />
-          <div className="flex gap-1">
-            {['all', 'info', 'warning', 'critical'].map(s => (
-              <button key={s} onClick={() => setFilterSeverity(s)}
-                className={`text-[10px] font-mono uppercase px-2 py-1 rounded-[8px] transition-all ${filterSeverity === s ? 'bg-white/10 text-[#E6EDF3]' : 'text-[#66778B] hover:text-[#94A3B8]'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1">
-            {['all', 'live', 'simulation'].map(m => (
-              <button key={m} onClick={() => setFilterMode(m)}
-                className={`text-[10px] font-mono uppercase px-2 py-1 rounded-[8px] transition-all ${filterMode === m ? 'bg-white/10 text-[#E6EDF3]' : 'text-[#66778B] hover:text-[#94A3B8]'}`}>
-                {m}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
+      <Card>
+        <div className="ui-filter-bar">
+          <Filter size={12} style={{ color: '#66778B', flexShrink: 0 }} />
+          <FilterPills
+            options={['all', 'info', 'warning', 'critical'].map(s => ({ value: s, label: s }))}
+            value={filterSeverity}
+            onChange={setFilterSeverity}
+          />
+          <FilterPills
+            options={['all', 'live', 'simulation'].map(m => ({ value: m, label: m }))}
+            value={filterMode}
+            onChange={setFilterMode}
+          />
+          <Input
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
             placeholder="Szukaj operatora lub szczegółów..."
-            className="flex-1 min-w-40 bg-white/[0.04] border border-white/10 rounded-[14px] px-3 py-1.5 text-[11px] font-mono text-[#E6EDF3] placeholder-[#66778B] focus:outline-none focus:border-[#00E5FF]/30"
+            style={{ flex: 1, minWidth: 180 }}
+            icon={<Search size={14} />}
           />
-          <span className="text-[10px] font-mono text-[#66778B]">{filtered.length} wyników</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#66778B', flexShrink: 0 }}>{filtered.length} wyników</span>
         </div>
       </Card>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto glass rounded-[14px]">
-        <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-[#0B1117] border-b border-white/[0.06]">
+      <div className="ui-table-panel">
+        <table className="ui-table">
+          <thead>
             <tr>
               {['TIMESTAMP', 'OPERATOR', 'ACTION', 'SEVERITY', 'MODE', 'HASH', 'DETAILS'].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-[10px] font-mono font-medium uppercase tracking-wider text-[#66778B]">
-                  {h}
-                </th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -128,29 +119,29 @@ export function AuditLog() {
               filtered.map((entry, i) => (
                 <tr
                   key={entry.id}
-                  className={`border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors ${i % 2 === 0 ? '' : 'bg-white/[0.01]'}`}
+                  className={i % 2 === 0 ? '' : 'bg-white/[0.01]'}
                 >
-                  <td className="px-4 py-2.5 text-[10px] font-mono text-[#66778B] whitespace-nowrap">
+                  <td className="text-[10px] font-mono text-[#66778B] whitespace-nowrap">
                     {formatTimestamp(entry.timestamp)}
                   </td>
-                  <td className="px-4 py-2.5 text-[11px] font-mono text-[#94A3B8]">{entry.operator}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="text-[11px] font-mono text-[#94A3B8]">{entry.operator}</td>
+                  <td>
                     <Badge variant="muted">{ACTION_LABELS[entry.action] ?? entry.action}</Badge>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td>
                     <span className={`text-[10px] font-mono font-medium uppercase ${severityColors[entry.severity]}`}>
                       {entry.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td>
                     <Badge variant={entry.mode === 'simulation' ? 'orange' : 'green'}>
                       {entry.mode}
                     </Badge>
                   </td>
-                  <td className="px-4 py-2.5 text-[10px] font-mono text-[#66778B]">
+                  <td className="text-[10px] font-mono text-[#66778B]">
                     {entry.exportHash ?? '—'}
                   </td>
-                  <td className="px-4 py-2.5 text-[11px] font-mono text-[#94A3B8] max-w-xs truncate">
+                  <td className="text-[11px] font-mono text-[#94A3B8] max-w-xs truncate">
                     {entry.details}
                   </td>
                 </tr>
@@ -159,6 +150,6 @@ export function AuditLog() {
           </tbody>
         </table>
       </div>
-    </div>
+    </PageShell>
   )
 }

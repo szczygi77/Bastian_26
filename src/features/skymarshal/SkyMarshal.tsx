@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge, StatusBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
 import type { MissionType, IKObject } from '@/types'
 
 const MISSION_TYPES: { type: MissionType; label: string; desc: string }[] = [
@@ -63,30 +64,26 @@ export function SkyMarshal() {
   const activeMissions = missions.filter(m => m.status !== 'completed')
 
   return (
-    <div className="h-full flex overflow-hidden">
-      {/* Left panel: mission config */}
-      <div className="w-80 flex-shrink-0 glass-strong border-r border-white/[0.06] overflow-auto p-4">
-        <div className="flex items-center gap-2 mb-4">
+    <PageSplit>
+      <PageSplitSidebar>
+        <div className="flex items-center gap-2">
           <Radio size={14} className="text-[#00E5FF]" />
           <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#E6EDF3]">SKYMARSHAL</span>
         </div>
-        <div className="text-[10px] font-mono text-[#66778B] mb-4">
+        <div className="text-[10px] font-mono text-[#66778B]">
           Koordynacja istniejących dronów służb — Policja / PSP / OSP / Jednostka Kryzysowa
         </div>
 
         {/* Mission type */}
-        <div className="mb-4">
+        <div>
           <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">TYP MISJI</div>
-          <div className="space-y-1">
+          <div className="ui-list">
             {MISSION_TYPES.map(({ type, label, desc }) => (
               <button
                 key={type}
+                type="button"
                 onClick={() => setSelectedMissionType(type)}
-                className={`w-full text-left p-2.5 rounded-[14px] border transition-all ${
-                  selectedMissionType === type
-                    ? 'bg-[#00E5FF]/8 border-[#00E5FF]/30'
-                    : 'border-white/[0.06] hover:border-white/10 hover:bg-white/[0.02]'
-                }`}
+                className={`ui-list-item ${selectedMissionType === type ? 'is-selected' : ''}`}
               >
                 <div className="text-[11px] font-mono font-medium text-[#E6EDF3]">{label}</div>
                 <div className="text-[10px] font-mono text-[#66778B]">{desc}</div>
@@ -98,16 +95,13 @@ export function SkyMarshal() {
         {/* Target object */}
         <div className="mb-4">
           <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">OBIEKT DOCELOWY</div>
-          <div className="space-y-1 max-h-48 overflow-auto">
+          <div className="ui-list max-h-48 overflow-auto">
             {ikObjects.map(obj => (
               <button
                 key={obj.id}
+                type="button"
                 onClick={() => setSelectedTarget(obj)}
-                className={`w-full text-left p-2 rounded-[14px] border transition-all ${
-                  selectedTarget?.id === obj.id
-                    ? 'bg-[#00E5FF]/8 border-[#00E5FF]/30'
-                    : 'border-white/[0.06] hover:border-white/10'
-                }`}
+                className={`ui-list-item ${selectedTarget?.id === obj.id ? 'is-selected' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-mono text-[#94A3B8]">{obj.shortName}</span>
@@ -127,19 +121,18 @@ export function SkyMarshal() {
         >
           <Send size={12} /> DISPATCH BEST DRONE
         </Button>
-      </div>
+      </PageSplitSidebar>
 
-      {/* Right: drone scoring + fleet */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <PageSplitMain>
         {/* Active missions */}
         {activeMissions.length > 0 && (
           <Card label={`ACTIVE MISSIONS (${activeMissions.length})`} accent="cyan">
-            <div className="space-y-2">
+            <div className="ui-stack" style={{ gap: 10 }}>
               {activeMissions.map(mission => {
                 const drone = drones.find(d => d.id === mission.droneId)
                 const target = ikObjects.find(o => o.id === mission.targetObjectId)
                 return (
-                  <div key={mission.id} className="flex items-center gap-4 p-2 rounded-[14px] bg-white/[0.03] border border-[#00E5FF]/10">
+                  <div key={mission.id} className="ui-row-item" style={{ justifyContent: 'flex-start', gap: 16, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(0,229,255,0.10)' }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-[#00E5FF] animate-pulse-cyan flex-shrink-0" />
                     <div className="flex-1 text-[11px] font-mono">
                       <span className="text-[#00E5FF]">{drone?.model ?? mission.droneId}</span>
@@ -158,14 +151,17 @@ export function SkyMarshal() {
         {/* Drone scoring */}
         {selectedTarget && (
           <Card label={`DRONE SCORING — ${selectedMissionType.replace(/_/g, ' ').toUpperCase()} → ${selectedTarget.shortName}`}>
-            <div className="space-y-3">
+            <div className="ui-stack">
               {sortedScores.map(score => {
                 const drone = drones.find(d => d.id === score.droneId)
                 if (!drone) return null
                 return (
-                  <div key={score.droneId} className={`p-3 rounded-[14px] border transition-all ${
-                    score.recommended ? 'border-[#22C55E]/30 bg-[#22C55E]/5' : 'border-white/[0.06]'
-                  } ${!drone.availability ? 'opacity-40' : ''}`}>
+                  <div key={score.droneId} className={`ui-panel ${
+                    score.recommended ? 'border-[#22C55E]/30' : ''
+                  } ${!drone.availability ? 'opacity-40' : ''}`} style={{
+                    background: score.recommended ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)',
+                    padding: '16px 18px',
+                  }}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <div className="text-[12px] font-mono font-medium text-[#E6EDF3]">{drone.model}</div>
@@ -179,18 +175,18 @@ export function SkyMarshal() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="ui-grid ui-grid-4">
                       <div>
-                        <ProgressBar value={score.distanceScore} label="DISTANCE" size="sm" />
+                        <ProgressBar value={score.distanceScore} label="DISTANCE" thin />
                       </div>
                       <div>
-                        <ProgressBar value={score.batteryScore} label="BATTERY" size="sm" />
+                        <ProgressBar value={score.batteryScore} label="BATTERY" thin />
                       </div>
                       <div>
-                        <ProgressBar value={score.payloadScore} label="PAYLOAD" size="sm" />
+                        <ProgressBar value={score.payloadScore} label="PAYLOAD" thin />
                       </div>
                       <div>
-                        <ProgressBar value={score.availabilityScore} label="AVAIL." size="sm" />
+                        <ProgressBar value={score.availabilityScore} label="AVAIL." thin />
                       </div>
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[#66778B]">
@@ -208,9 +204,9 @@ export function SkyMarshal() {
 
         {/* Fleet overview */}
         <Card label="DRONE FLEET — STALOWA WOLA">
-          <div className="space-y-2">
+          <div className="ui-stack" style={{ gap: 10 }}>
             {drones.map(drone => (
-              <div key={drone.id} className="flex items-center gap-4 p-3 rounded-[14px] border border-white/[0.06]">
+              <div key={drone.id} className="ui-row-item" style={{ justifyContent: 'flex-start', gap: 16 }}>
                 <div className="flex-1">
                   <div className="text-[11px] font-mono font-medium text-[#E6EDF3]">{drone.model}</div>
                   <div className="text-[10px] font-mono text-[#66778B]">{agencyLabel(drone.agency)} · {drone.operator}</div>
@@ -239,9 +235,9 @@ export function SkyMarshal() {
         {/* Mission history */}
         {missions.length > 0 && (
           <Card label={`MISSION LOG (${missions.length})`}>
-            <div className="space-y-1">
+            <div className="ui-stack" style={{ gap: 8 }}>
               {missions.map(m => (
-                <div key={m.id} className="flex items-center gap-3 py-1.5 border-b border-white/[0.04] last:border-0 text-[10px] font-mono">
+                <div key={m.id} className="ui-row-item text-[10px] font-mono" style={{ justifyContent: 'flex-start', gap: 12 }}>
                   <span className="text-[#66778B]">{formatTimestamp(m.assignedAt)}</span>
                   <span className="text-[#94A3B8]">{m.droneId}</span>
                   <Badge variant="cyan">{m.type.replace(/_/g, ' ')}</Badge>
@@ -252,7 +248,7 @@ export function SkyMarshal() {
             </div>
           </Card>
         )}
-      </div>
-    </div>
+      </PageSplitMain>
+    </PageSplit>
   )
 }

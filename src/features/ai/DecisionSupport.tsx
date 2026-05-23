@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { PageShell } from '@/components/layout/PageShell'
 import type { Recommendation } from '@/types'
 
 export function DecisionSupport() {
@@ -58,7 +59,7 @@ export function DecisionSupport() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6">
+    <PageShell>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -92,7 +93,7 @@ export function DecisionSupport() {
           <div className="text-[11px] mt-1">Uruchom scenariusz aby wygenerować rekomendacje</div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="ui-stack">
           {recommendations.map(rec => {
             const isExpanded = expanded === rec.id
             const allApproved = rec.actions.every(a => a.approved)
@@ -128,21 +129,21 @@ export function DecisionSupport() {
                 <ProgressBar value={rec.confidence} label="Confidence" showValue accent="cyan" className="mb-4" />
 
                 {/* Reasoning */}
-                <div className="glass rounded-[14px] p-3 mb-4">
+                <div className="ui-panel" style={{ background: 'rgba(255,255,255,0.02)', marginBottom: 16 }}>
                   <div className="text-[9px] font-mono text-[#66778B] uppercase tracking-wider mb-1">REASONING SUMMARY</div>
                   <p className="text-[11px] font-mono text-[#94A3B8] leading-relaxed">{rec.reasoning}</p>
                 </div>
 
                 {/* Actions */}
                 {isExpanded && (
-                  <div className="space-y-2 mb-4">
-                    <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">
+                  <div className="ui-stack" style={{ gap: 10, marginBottom: 16 }}>
+                    <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider">
                       RECOMMENDED ACTIONS ({rec.actions.length})
                     </div>
                     {rec.actions.map(action => (
-                      <div key={action.id} className={`flex items-start gap-3 p-3 rounded-[14px] border transition-all ${
-                        action.approved ? 'border-[#22C55E]/30 bg-[#22C55E]/5' : 'border-white/[0.06] hover:border-white/10'
-                      }`}>
+                      <div key={action.id} className={`ui-row-item ${
+                        action.approved ? 'border-[#22C55E]/30 bg-[#22C55E]/5' : ''
+                      }`} style={{ alignItems: 'flex-start', justifyContent: 'flex-start', gap: 12 }}>
                         <span className="text-[10px] font-mono text-[#66778B] w-4 flex-shrink-0">{action.priority}.</span>
                         <div className="flex-1 min-w-0">
                           <div className="text-[11px] font-mono text-[#E6EDF3] mb-1">{action.description}</div>
@@ -182,6 +183,6 @@ export function DecisionSupport() {
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }

@@ -24,6 +24,29 @@
   --color-text-muted:     #66778B;
   --color-text-faint:     #3D5060;
 
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning-token: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
@@ -33,6 +56,7 @@
   --radius-lg:  20px;
   --radius-xl:  28px;
   --radius-2xl: 36px;
+  --radius: 14px;
 }
 
 /* ─── DESIGN TOKENS (CSS vars for non-Tailwind usage) ──────────────────────── */
@@ -78,8 +102,40 @@
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
   --sidebar-collapsed: 64px;
+  --sidebar-collapsed-macos: 72px;
+  --electron-traffic-light-inset: 78px;
   --sidebar-expanded:  280px;
   --topbar-height:     48px;
+
+  /* UI kit semantic tokens (bastion-ui-kit.lovable.app) */
+  --background: #0d0f12;
+  --foreground: #E6EDF3;
+  --card: rgba(20, 28, 38, 0.55);
+  --card-foreground: #E6EDF3;
+  --popover: rgba(18, 24, 32, 0.85);
+  --popover-foreground: #E6EDF3;
+  --primary: #FF8A1F;
+  --primary-foreground: #0d0f12;
+  --primary-glow: #ff9f47;
+  --secondary: rgba(38, 46, 56, 0.6);
+  --secondary-foreground: #E6EDF3;
+  --muted: rgba(32, 40, 50, 0.5);
+  --muted-foreground: #94A3B8;
+  --accent: rgba(255, 138, 31, 0.15);
+  --accent-foreground: #ffb366;
+  --destructive: #EF4444;
+  --destructive-foreground: #fff;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --info: #00E5FF;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: rgba(255, 138, 31, 0.5);
+  --gradient-primary: linear-gradient(135deg, #FF8A1F, #ff9f47);
+  --gradient-surface: linear-gradient(160deg, rgba(22, 32, 44, 0.7), rgba(18, 24, 32, 0.4));
+  --glow-primary: 0 0 24px rgba(255, 138, 31, 0.35);
+  --glow-soft: 0 0 40px rgba(255, 138, 31, 0.18);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ─── RESET ─────────────────────────────────────────────────────────────────── */
@@ -113,10 +169,11 @@ html, body, #root {
 
 /* ─── GLASS SURFACES ─────────────────────────────────────────────────────────── */
 .glass {
-  background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  border: 1px solid var(--border-soft);
+  background: var(--gradient-surface);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-glass);
 }
 
 .glass-strong {
@@ -157,7 +214,34 @@ html, body, #root {
   backdrop-filter: blur(8px);
 }
 
-/* ─── GLOW UTILITIES ─────────────────────────────────────────────────────────── */
+.grid-bg {
+  background-image:
+    radial-gradient(80% 50% at 20% 0%, rgba(255, 138, 31, 0.12) 0%, transparent 60%),
+    radial-gradient(60% 50% at 80% 100%, rgba(255, 138, 31, 0.08) 0%, transparent 60%);
+  background-attachment: fixed;
+}
+
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: var(--glow-primary); }
+  50%       { box-shadow: 0 0 32px rgba(255, 138, 31, 0.55); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.animate-glow-breathe { animation: glow-breathe 2.4s ease-in-out infinite; }
+.animate-pulse-soft   { animation: pulse-soft 2s ease-in-out infinite; }
+
+/* Ensure form controls keep explicit padding despite reset */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select,
+button {
+  box-sizing: border-box;
+}
+
 .glow-orange    { box-shadow: var(--glow-orange-sm); }
 .glow-orange-md { box-shadow: var(--glow-orange-md); }
 .glow-cyan      { box-shadow: var(--glow-cyan-sm); }
@@ -221,10 +305,190 @@ html, body, #root {
 .page-content {
   height: 100%;
   overflow-y: auto;
-  padding: 24px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+.page-content--fixed {
+  overflow: hidden;
+}
+
+.page-split {
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.page-split-sidebar {
+  width: 288px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
+  background: var(--glass-strong);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.page-split-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+.dashboard-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── UI INTERNAL SPACING ─────────────────────────────────────────────────────── */
+.ui-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ui-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.ui-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ui-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ui-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.ui-panel {
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-sizing: border-box;
+}
+
+.ui-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ui-list-item {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ui-list-item:hover {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.10);
+}
+
+.ui-list-item.is-selected {
+  background: rgba(0,229,255,0.08);
+  border-color: rgba(0,229,255,0.30);
+}
+
+.ui-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ui-table-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--gradient-surface);
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ui-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #0B1117;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.ui-table th {
+  text-align: left;
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #66778B;
+}
+
+.ui-table td {
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.ui-table tbody tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.ui-expand-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.ui-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-sizing: border-box;
+}
+
+.ui-expand-trigger {
+  width: 100%;
+  text-align: left;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  box-sizing: border-box;
+}
+
+.ui-expand-trigger:hover {
+  background: rgba(255,255,255,0.02);
 }
 
 .page-header {
@@ -424,8 +688,9 @@ html, body, #root {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 10px;
+  gap: 14px;
+  padding: 13px 12px;
+  min-height: 46px;
   border-radius: 10px;
   border: 1px solid transparent;
   transition: all 0.15s ease;
@@ -450,12 +715,36 @@ html, body, #root {
 .data-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
   transition: background 0.12s ease;
 }
 
 .data-row:hover {
   background: rgba(255,255,255,0.030);
+}
+
+/* ─── BRAND LOGO (dark theme) ─────────────────────────────────────────────────── */
+.brand-logo {
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
+.brand-logo--hero {
+  opacity: 0.97;
+  filter: brightness(0) invert(1) drop-shadow(0 0 24px rgba(255, 255, 255, 0.12));
+}
+
+/* ─── ELECTRON / macOS title bar ─────────────────────────────────────────────── */
+html.electron-macos {
+  --electron-traffic-light-inset: 78px;
+}
+
+.window-drag {
+  -webkit-app-region: drag;
+}
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
 }

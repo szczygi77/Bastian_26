@@ -4,6 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/globals.css'
 import App from '@/app/App'
 
+if (window.electronAPI) {
+  document.documentElement.classList.add('electron')
+  void window.electronAPI.getPlatform().then(platform => {
+    if (platform === 'darwin') document.documentElement.classList.add('electron-macos')
+  })
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

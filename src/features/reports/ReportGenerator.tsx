@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { FileOutput, Download, Eye } from 'lucide-react'
+import {
+  FileOutput, Download, Eye,
+  AlertTriangle, GitBranch, ArrowUpFromLine, Plane, Scale,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { generateReport, renderReportHTML } from '@/services/reportGenerator'
 import { logAction } from '@/services/auditLogService'
@@ -7,14 +11,15 @@ import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
 import type { ReportType, ReportDefinition } from '@/types'
 
-const REPORT_TYPES: { type: ReportType; label: string; desc: string; icon: string }[] = [
-  { type: 'incident', label: 'INCIDENT REPORT', desc: 'Raport incydentu zgodny z formatem CERT Polska / NIS2', icon: '🚨' },
-  { type: 'cascade', label: 'CASCADE ANALYSIS', desc: 'Pełna analiza kaskady BFS/DFS z drzewem propagacji', icon: '🔗' },
-  { type: 'escalation', label: 'ESCALATION REPORT', desc: 'Raport eskalacji z listą alertów i działaniami', icon: '⬆️' },
-  { type: 'drone_mission', label: 'DRONE MISSION LOG', desc: 'Raport misji Skymarshal z adapters info', icon: '🚁' },
-  { type: 'compliance', label: 'COMPLIANCE REPORT', desc: 'Status zgodności ze wszystkimi regulacjami', icon: '⚖️' },
+const REPORT_TYPES: { type: ReportType; label: string; desc: string; icon: LucideIcon }[] = [
+  { type: 'incident', label: 'INCIDENT REPORT', desc: 'Raport incydentu zgodny z formatem CERT Polska / NIS2', icon: AlertTriangle },
+  { type: 'cascade', label: 'CASCADE ANALYSIS', desc: 'Pełna analiza kaskady BFS/DFS z drzewem propagacji', icon: GitBranch },
+  { type: 'escalation', label: 'ESCALATION REPORT', desc: 'Raport eskalacji z listą alertów i działaniami', icon: ArrowUpFromLine },
+  { type: 'drone_mission', label: 'DRONE MISSION LOG', desc: 'Raport misji Skymarshal z adapters info', icon: Plane },
+  { type: 'compliance', label: 'COMPLIANCE REPORT', desc: 'Status zgodności ze wszystkimi regulacjami', icon: Scale },
 ]
 
 export function ReportGenerator() {
@@ -68,45 +73,47 @@ export function ReportGenerator() {
   }
 
   return (
-    <div className="h-full flex overflow-hidden">
-      {/* Left: type selector */}
-      <div className="w-72 flex-shrink-0 glass-strong border-r border-white/[0.06] p-4">
-        <div className="flex items-center gap-2 mb-4">
+    <PageSplit>
+      <PageSplitSidebar>
+        <div className="flex items-center gap-2">
           <FileOutput size={14} className="text-[#00E5FF]" />
           <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#E6EDF3]">REPORT GENERATOR</span>
         </div>
-        <div className="space-y-2">
-          {REPORT_TYPES.map(({ type, label, desc, icon }) => (
+
+        <div className="ui-list">
+          {REPORT_TYPES.map(({ type, label, desc, icon: Icon }) => (
             <button
               key={type}
+              type="button"
               onClick={() => setSelectedType(type)}
-              className={`w-full text-left p-3 rounded-[14px] border transition-all ${
-                selectedType === type
-                  ? 'bg-[#00E5FF]/8 border-[#00E5FF]/30'
-                  : 'border-white/[0.06] hover:border-white/10 hover:bg-white/[0.02]'
-              }`}
+              className={`ui-list-item ${selectedType === type ? 'is-selected' : ''}`}
             >
-              <div className="text-[13px] mb-0.5">{icon}</div>
-              <div className="text-[11px] font-mono font-medium text-[#E6EDF3]">{label}</div>
-              <div className="text-[10px] font-mono text-[#66778B]">{desc}</div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0 bg-[#00E5FF]/10 border border-[#00E5FF]/20">
+                  <Icon size={15} className="text-[#00E5FF]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-mono font-medium text-[#E6EDF3]">{label}</div>
+                  <div className="text-[10px] font-mono text-[#66778B] mt-1 leading-relaxed">{desc}</div>
+                </div>
+              </div>
             </button>
           ))}
         </div>
 
         <Button
           variant="primary"
-          className="w-full mt-4"
+          className="w-full mt-auto"
           loading={generating}
           onClick={handleGenerate}
         >
           GENERATE REPORT
         </Button>
-      </div>
+      </PageSplitSidebar>
 
-      {/* Right: preview */}
-      <div className="flex-1 overflow-auto p-6 space-y-4">
+      <PageSplitMain>
         {!generatedReport ? (
-          <div className="flex items-center justify-center h-full text-center text-[#66778B] font-mono">
+          <div className="flex items-center justify-center flex-1 text-center text-[#66778B] font-mono">
             <div>
               <FileOutput size={32} className="mx-auto mb-3 opacity-20" />
               <div className="text-[13px]">Wybierz typ raportu i kliknij Generate</div>
@@ -114,11 +121,11 @@ export function ReportGenerator() {
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between">
+          <div className="ui-stack" style={{ flex: 1 }}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h2 className="text-[14px] font-mono font-bold text-[#E6EDF3]">{generatedReport.title}</h2>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant="muted">ID: {generatedReport.id}</Badge>
                   <Badge variant="cyan">{generatedReport.type.toUpperCase()}</Badge>
                   <span className="text-[10px] font-mono text-[#66778B]">
@@ -126,7 +133,7 @@ export function ReportGenerator() {
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="secondary" size="sm" onClick={() => setPreview(!preview)}>
                   <Eye size={11} /> {preview ? 'RAW JSON' : 'HTML PREVIEW'}
                 </Button>
@@ -141,7 +148,7 @@ export function ReportGenerator() {
 
             {preview ? (
               <div
-                className="rounded-[14px] overflow-auto"
+                className="rounded-[14px] overflow-auto flex-1"
                 dangerouslySetInnerHTML={{ __html: renderReportHTML(generatedReport) }}
               />
             ) : (
@@ -151,9 +158,9 @@ export function ReportGenerator() {
                 </pre>
               </Card>
             )}
-          </>
+          </div>
         )}
-      </div>
-    </div>
+      </PageSplitMain>
+    </PageSplit>
   )
 }

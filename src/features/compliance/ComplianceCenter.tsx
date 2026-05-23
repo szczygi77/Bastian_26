@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Shield, ChevronDown, ChevronUp } from 'lucide-react'
+import { Shield, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react'
 import { COMPLIANCE_REQUIREMENTS } from '@/data/compliance'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { PageShell } from '@/components/layout/PageShell'
+import type { LucideIcon } from 'lucide-react'
 
-const STATUS_CONFIG = {
-  compliant: { label: 'ZGODNY', badge: 'green' as const, icon: '✓' },
-  partial: { label: 'CZĘŚCIOWY', badge: 'warning' as const, icon: '△' },
-  non_compliant: { label: 'NIEZGODNY', badge: 'danger' as const, icon: '✗' },
-  pending_review: { label: 'DO PRZEGLĄDU', badge: 'muted' as const, icon: '?' },
+const STATUS_CONFIG: Record<string, { label: string; badge: 'green' | 'warning' | 'danger' | 'muted'; icon: LucideIcon }> = {
+  compliant: { label: 'ZGODNY', badge: 'green', icon: CheckCircle2 },
+  partial: { label: 'CZĘŚCIOWY', badge: 'warning', icon: AlertTriangle },
+  non_compliant: { label: 'NIEZGODNY', badge: 'danger', icon: XCircle },
+  pending_review: { label: 'DO PRZEGLĄDU', badge: 'muted', icon: HelpCircle },
 }
 
 const REGULATION_GROUPS = ['KSC', 'NIS2', 'CER', 'RODO', 'EU AI Act', 'KRI', 'STANAG', 'ISA/IEC 62443', 'ISO 27001', 'ISO 22301']
@@ -27,7 +29,7 @@ export function ComplianceCenter() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6">
+    <PageShell>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -44,7 +46,7 @@ export function ComplianceCenter() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="ui-grid ui-grid-4">
         <Card accent="green">
           <div className="text-[10px] font-mono text-[#66778B] mb-1">ZGODNY</div>
           <div className="text-2xl font-mono font-bold text-[#22C55E]">{stats.compliant}</div>
@@ -81,19 +83,20 @@ export function ComplianceCenter() {
       </div>
 
       {/* Requirements list */}
-      <div className="space-y-3">
+      <div className="ui-list">
         {filtered.map(req => {
           const config = STATUS_CONFIG[req.status]
           const isExpanded = expanded === req.id
 
           return (
-            <div key={req.id} className="glass rounded-[14px] border border-white/[0.06] overflow-hidden">
+            <Card key={req.id} noPad>
               <button
-                className="w-full text-left p-4 flex items-center gap-4 hover:bg-white/[0.02] transition-colors"
+                type="button"
+                className="ui-expand-trigger"
                 onClick={() => setExpanded(isExpanded ? null : req.id)}
               >
                 <div className="flex-shrink-0 w-24">
-                  <Badge variant={config.badge}>{config.icon} {req.regulation}</Badge>
+                  <Badge variant={config.badge} icon={config.icon}>{req.regulation}</Badge>
                 </div>
                 <div className="text-[10px] font-mono text-[#66778B] w-24 flex-shrink-0">{req.article}</div>
                 <div className="flex-1 text-[11px] font-mono text-[#94A3B8] text-left">{req.requirement}</div>
@@ -102,8 +105,8 @@ export function ComplianceCenter() {
               </button>
 
               {isExpanded && (
-                <div className="px-4 pb-4 space-y-3 border-t border-white/[0.04]">
-                  <div className="pt-3">
+                <div className="ui-expand-body">
+                  <div>
                     <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-1">IMPLEMENTACJA W BASTIONIE</div>
                     <p className="text-[11px] font-mono text-[#94A3B8] leading-relaxed">{req.bastionImplementation}</p>
                   </div>
@@ -112,17 +115,17 @@ export function ComplianceCenter() {
                     <p className="text-[11px] font-mono text-[#94A3B8]">{req.risk}</p>
                   </div>
                   {req.actionNeeded && (
-                    <div className="p-3 rounded-[14px] bg-[#F59E0B]/8 border border-[#F59E0B]/25">
+                    <div className="ui-panel" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '14px 16px' }}>
                       <div className="text-[10px] font-mono text-[#F59E0B] uppercase tracking-wider mb-1">ACTION NEEDED</div>
                       <p className="text-[11px] font-mono text-[#F59E0B]/80">{req.actionNeeded}</p>
                     </div>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           )
         })}
       </div>
-    </div>
+    </PageShell>
   )
 }

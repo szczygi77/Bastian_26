@@ -1,6 +1,6 @@
 {
   "appId": "pl.bastion.enterprise",
-  "productName": "BASTION Enterprise",
+  "productName": "BASTION",
   "directories": {
     "output": "release"
   },
@@ -10,7 +10,8 @@
   ],
   "mac": {
     "target": ["dmg"],
-    "category": "public.app-category.utilities"
+    "category": "public.app-category.utilities",
+    "icon": "public/icon.png"
   },
   "win": {
     "target": ["nsis"],
@@ -18,6 +19,7 @@
   },
   "linux": {
     "target": ["AppImage"],
-    "category": "Utility"
+    "category": "Utility",
+    "icon": "public/icon.png"
   }
 }

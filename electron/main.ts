@@ -1,10 +1,22 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, nativeImage } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
+
+const APP_NAME = 'BASTION'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:3000'
+
+const iconPath = path.join(__dirname, '../public/icon.png')
+
+function applyAppIdentity() {
+  app.setName(APP_NAME)
+
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(nativeImage.createFromPath(iconPath))
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -19,8 +31,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../public/icon.png'),
-    title: 'BASTION — Critical Infrastructure Command Center',
+    icon: iconPath,
+    title: APP_NAME,
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -37,6 +49,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  applyAppIdentity()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -49,3 +62,4 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('app:platform', () => process.platform)
+ipcMain.handle('app:name', () => APP_NAME)

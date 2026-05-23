@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
 import type { ScenarioDefinition, ScenarioRun } from '@/types'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -102,13 +103,12 @@ export function ScenarioEngine() {
   const { cascadeResult } = useAppStore()
 
   return (
-    <div className="h-full flex overflow-hidden">
-      {/* Scenario list */}
-      <div className="w-80 flex-shrink-0 glass-strong border-r border-white/[0.06] overflow-auto p-4">
-        <div className="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-[#66778B] mb-4">
+    <PageSplit>
+      <PageSplitSidebar>
+        <div className="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-[#66778B]">
           SCENARIO LIBRARY
         </div>
-        <div className="space-y-2">
+        <div className="ui-list">
           {SCENARIOS.map(scenario => {
             const Icon = ICON_MAP[scenario.icon] ?? AlertTriangle
             const isSelected = selectedScenario?.id === scenario.id
@@ -116,12 +116,9 @@ export function ScenarioEngine() {
             return (
               <button
                 key={scenario.id}
+                type="button"
                 onClick={() => setSelectedScenario(scenario)}
-                className={`w-full text-left p-3 rounded-[14px] border transition-all duration-150 ${
-                  isSelected
-                    ? 'bg-[#00E5FF]/8 border-[#00E5FF]/30'
-                    : 'border-white/[0.06] hover:border-white/10 hover:bg-white/[0.03]'
-                }`}
+                className={`ui-list-item ${isSelected ? 'is-selected' : ''}`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0 ${
@@ -139,10 +136,9 @@ export function ScenarioEngine() {
             )
           })}
         </div>
-      </div>
+      </PageSplitSidebar>
 
-      {/* Detail panel */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <PageSplitMain>
         {!selectedScenario ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-[#66778B] font-mono">
@@ -151,7 +147,7 @@ export function ScenarioEngine() {
             </div>
           </div>
         ) : (
-          <>
+          <div className="ui-stack">
             {/* Header */}
             <div className="flex items-start justify-between">
               <div>
@@ -190,7 +186,7 @@ export function ScenarioEngine() {
             {cascadeResult && completedRun?.scenarioId === selectedScenario.id && (
               <>
                 {/* Stats */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="ui-grid ui-grid-4">
                   <Card accent="danger">
                     <div className="text-[10px] font-mono text-[#66778B] mb-1">AFFECTED OBJECTS</div>
                     <div className="text-2xl font-mono font-bold text-[#EF4444]">{cascadeResult.affectedCount}</div>
@@ -211,14 +207,14 @@ export function ScenarioEngine() {
 
                 {/* Impact timeline */}
                 <Card label="IMPACT TIMELINE (KOLEJNOŚĆ KASKADY)">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 py-2 border-b border-white/[0.06]">
+                  <div className="ui-stack" style={{ gap: 8 }}>
+                    <div className="ui-row-item" style={{ justifyContent: 'flex-start', gap: 12 }}>
                       <div className="w-16 text-[10px] font-mono text-[#66778B]">T+0min</div>
                       <div className="w-2 h-2 rounded-full bg-[#EF4444] glow-danger" />
                       <div className="text-[11px] font-mono font-bold text-[#EF4444]">{selectedScenario.triggerObjectId.toUpperCase()} — INCYDENT INICJALNY</div>
                     </div>
                     {getImpactTimeline(cascadeResult, ikObjects).map((item, i) => (
-                      <div key={i} className="flex items-center gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
+                      <div key={i} className="ui-row-item" style={{ justifyContent: 'flex-start', gap: 12 }}>
                         <div className="w-16 text-[10px] font-mono text-[#F59E0B]">T+{item.time}min</div>
                         <div className={`w-2 h-2 rounded-full flex-shrink-0`} style={{ background: item.severity === 'critical' ? '#EF4444' : item.severity === 'high' ? '#FF8A1F' : '#F59E0B' }} />
                         <div className={`text-[11px] font-mono ${severityColor(item.severity)}`}>{item.name}</div>
@@ -241,7 +237,7 @@ export function ScenarioEngine() {
                           </div>
                           <ProgressBar
                             value={node.impactScore}
-                            variant={node.severity === 'critical' ? 'danger' : node.severity === 'high' ? 'orange' : 'cyan'}
+                            accent={node.severity === 'critical' ? 'danger' : node.severity === 'high' ? 'orange' : 'cyan'}
                           />
                         </div>
                       )
@@ -262,9 +258,9 @@ export function ScenarioEngine() {
                 </div>
               </Card>
             )}
-          </>
+          </div>
         )}
-      </div>
-    </div>
+      </PageSplitMain>
+    </PageSplit>
   )
 }

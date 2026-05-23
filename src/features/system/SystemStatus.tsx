@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
-import { Activity, Lock, Satellite, Database, Cpu, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Activity, Lock, Satellite, Database, Cpu, Wifi, WifiOff, RefreshCw, ShieldAlert } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { formatTimeAgo, formatDuration } from '@/utils/format'
+import { formatTimeAgo } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { Badge } from '@/components/ui/Badge'
+import { PageShell } from '@/components/layout/PageShell'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 
 function ConnectionRow({ label, status, detail }: { label: string; status: string; detail?: string }) {
@@ -13,7 +14,7 @@ function ConnectionRow({ label, status, detail }: { label: string; status: strin
   const warn = status === 'degraded' || status === 'active'
   const dotColor = ok ? 'green' : warn ? 'warning' : 'danger'
   return (
-    <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
+    <div className="ui-row-item">
       <span className="text-[11px] font-mono text-[#94A3B8]">{label}</span>
       <div className="flex items-center gap-3">
         {detail && <span className="text-[10px] font-mono text-[#66778B]">{detail}</span>}
@@ -27,7 +28,7 @@ function ConnectionRow({ label, status, detail }: { label: string; status: strin
 }
 
 export function SystemStatus() {
-  const { systemHealth, refreshSystemHealth, online } = useAppStore()
+  const { systemHealth, refreshSystemHealth, online, mode } = useAppStore()
 
   useEffect(() => {
     refreshSystemHealth()
@@ -41,7 +42,7 @@ export function SystemStatus() {
   const uptimeStr = `${uptimeDays}d ${uptimeHours}h ${uptimeMin}m`
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6">
+    <PageShell>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -52,29 +53,88 @@ export function SystemStatus() {
           </div>
         </div>
         <Button variant="secondary" size="sm" onClick={refreshSystemHealth}>
-          <RefreshCw size={11} /> REFRESH
+          <RefreshCw size={11} /> Odśwież
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      {/* Szybkie sprawdzenie systemów */}
+      <Card label="SPRAWDZENIE SYSTEMÓW">
+        <div className="ui-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+          <CheckItem
+            label="Połączenie"
+            value={online ? 'Online' : 'Offline'}
+            ok={online}
+            warn={!online}
+          />
+          <CheckItem label="Tryb pracy" value="Offline-first" ok />
+          <CheckItem
+            label="Cache satelitarny"
+            value={systemHealth.satelliteCacheStatus === 'fresh' ? 'Aktualny' : `Nieaktualny (${systemHealth.satelliteCacheAge}h)`}
+            ok={systemHealth.satelliteCacheStatus === 'fresh'}
+            warn={systemHealth.satelliteCacheStatus !== 'fresh'}
+          />
+          <CheckItem label="Szyfrowanie" value="AES-256 / TLS 1.3" ok />
+          <CheckItem
+            label="Silnik decyzyjny"
+            value={systemHealth.localAiReady ? 'AI lokalne' : 'Reguły (fallback)'}
+            ok={systemHealth.localAiReady}
+          />
+          <CheckItem
+            label="Łącze RCB"
+            value={systemHealth.rcbLinkStatus === 'connected' ? 'Połączony' : 'Niedostępny'}
+            ok={systemHealth.rcbLinkStatus === 'connected'}
+            warn={systemHealth.rcbLinkStatus !== 'connected'}
+          />
+          <CheckItem
+            label="Łącze TETRA"
+            value={systemHealth.tetraLinkStatus === 'connected' ? 'Połączony' : 'Niedostępny'}
+            ok={systemHealth.tetraLinkStatus === 'connected'}
+            warn={systemHealth.tetraLinkStatus !== 'connected'}
+          />
+          <CheckItem
+            label="Tryb aplikacji"
+            value={mode === 'simulation' ? 'Symulacja' : 'Live'}
+            ok={mode === 'live'}
+            warn={mode === 'simulation'}
+          />
+        </div>
+        {!online && (
+          <div className="ui-row-item" style={{
+            marginTop: 14,
+            background: 'rgba(255,138,31,0.08)', border: '1px solid rgba(255,138,31,0.20)',
+            justifyContent: 'flex-start', gap: 10,
+          }}>
+            <ShieldAlert size={14} style={{ color: '#FF8A1F', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#94A3B8', lineHeight: 1.5 }}>
+              System pracuje w trybie obniżonej dostępności. Dane z lokalnego cache, kolejka synchronizacji aktywna.
+            </span>
+          </div>
+        )}
+      </Card>
+
+      <div className="ui-grid ui-grid-3">
         {/* Core infrastructure */}
         <Card label="CORE INFRASTRUCTURE">
+          <div className="ui-stack" style={{ gap: 8 }}>
           <ConnectionRow label="Hot Standby (60s)" status={systemHealth.hotStandbyActive ? 'connected' : 'offline'} detail="Active-Passive" />
           <ConnectionRow label="Watchdog" status={systemHealth.watchdogActive ? 'connected' : 'offline'} detail="Auto-restart" />
           <ConnectionRow label="UPS" status={systemHealth.upsActive ? 'connected' : 'offline'} detail="≥12h" />
           <ConnectionRow label="Local DB (IndexedDB)" status={systemHealth.localDbStatus} />
           <ConnectionRow label="Encryption (AES-256)" status={systemHealth.encryptionActive ? 'connected' : 'offline'} detail="TLS 1.3" />
           <ConnectionRow label="Local AI" status={systemHealth.localAiReady ? 'ready' : 'degraded'} detail="Rule-based fallback" />
+          </div>
         </Card>
 
         {/* Communication links */}
         <Card label="COMMUNICATION LINKS (MOCK)">
+          <div className="ui-stack" style={{ gap: 8 }}>
           <ConnectionRow label="RCB / PIONIER" status={systemHealth.rcbLinkStatus} detail="AES-256 E2E" />
           <ConnectionRow label="TETRA (Służby)" status={systemHealth.tetraLinkStatus} detail="CH 1-9" />
           <ConnectionRow label="GSM Fallback" status={systemHealth.gsmFallbackStatus} detail="SMS Queue" />
           <ConnectionRow label="Internet (Public)" status={online ? 'connected' : 'offline'} detail={online ? 'Sync active' : 'Degraded mode'} />
+          </div>
 
-          <div className="pt-3 mt-2">
+          <div className="ui-panel" style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
             <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">SYNC QUEUE</div>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono text-[#94A3B8]">{systemHealth.syncQueueLength} wiadomości oczekujących</span>
@@ -128,7 +188,7 @@ export function SystemStatus() {
 
       {/* Security */}
       <Card label="SECURITY POSTURE">
-        <div className="grid grid-cols-3 gap-6">
+        <div className="ui-grid ui-grid-3">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Lock size={13} className="text-[#22C55E]" />
@@ -184,6 +244,42 @@ export function SystemStatus() {
           </div>
         </div>
       </Card>
+    </PageShell>
+  )
+}
+
+function CheckItem({
+  label, value, ok, warn,
+}: {
+  label: string
+  value: string
+  ok?: boolean
+  warn?: boolean
+}) {
+  const color = ok ? '#22C55E' : warn ? '#F59E0B' : '#66778B'
+
+  return (
+    <div className="ui-row-item" style={{
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      background: 'rgba(255,255,255,0.02)',
+    }}>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 9, color: '#66778B',
+        letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8,
+      }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <StatusDot
+          color={ok ? 'green' : warn ? 'warning' : 'muted'}
+          size="sm"
+          pulse={ok}
+        />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color, lineHeight: 1.3 }}>
+          {value}
+        </span>
+      </div>
     </div>
   )
 }

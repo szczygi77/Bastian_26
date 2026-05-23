@@ -1,360 +1,183 @@
-import { Wifi, WifiOff, Lock, Satellite, Brain, User, ShieldAlert, ChevronDown } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { User, ChevronDown, LogOut } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
+import { logAction } from '@/services/auditLogService'
 import { Switch } from '@/components/ui/Switch'
+import { useElectronShell } from '@/hooks/useElectronShell'
+import type { Operator, OperatorRole } from '@/types'
+
+const ROLE_LABEL: Record<OperatorRole, string> = {
+  commander: 'Dowódca',
+  analyst: 'Analityk',
+  operator: 'Operator',
+  admin: 'Administrator',
+  auditor: 'Audytor',
+}
 
 export function Topbar() {
-  const { mode, setMode, online, systemHealth, operator } = useAppStore()
+  const { mode, setMode, operator } = useAppStore()
+  const { chromeHeaderHeight } = useElectronShell()
   const isSimulation = mode === 'simulation'
 
   return (
-    <header
-      style={{
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 48,
-        padding: '0 20px',
-        zIndex: 10,
-        background: isSimulation
-          ? 'linear-gradient(90deg, rgba(255,138,31,0.07) 0%, rgba(11,17,23,0.97) 100%)'
-          : 'rgba(11,17,23,0.97)',
-        backdropFilter: 'blur(20px) saturate(1.3)',
-        WebkitBackdropFilter: 'blur(20px) saturate(1.3)',
-        borderBottom: isSimulation
-          ? '1px solid rgba(255,138,31,0.16)'
-          : '1px solid rgba(255,255,255,0.06)',
-        gap: 16,
-      }}
-    >
-      {/* ── Left: mode indicator ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        {isSimulation ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: '4px 10px',
-              borderRadius: 6,
-              background: 'rgba(255,138,31,0.11)',
-              border: '1px solid rgba(255,138,31,0.28)',
-            }}
-          >
-            <span
-              className="animate-pulse-dot"
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: '#FF8A1F',
-                boxShadow: '0 0 7px rgba(255,138,31,0.75)',
-                display: 'block',
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 9,
-                fontWeight: 700,
-                color: '#FF8A1F',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-              }}
-            >
-              SIMULATION MODE
-            </span>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              className="animate-pulse-dot"
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: '#22C55E',
-                boxShadow: '0 0 7px rgba(34,197,94,0.75)',
-                display: 'block',
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 9,
-                color: '#22C55E',
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-              }}
-            >
-              LIVE FEED
-            </span>
-          </div>
+    <header className="glass-strong window-drag" style={{
+      flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      height: chromeHeaderHeight, padding: '0 20px', zIndex: 10, gap: 16,
+      borderBottom: isSimulation ? '1px solid rgba(255,138,31,0.16)' : '1px solid rgba(255,255,255,0.06)',
+      background: isSimulation
+        ? 'linear-gradient(90deg, rgba(255,138,31,0.07) 0%, rgba(29,20,13,0.95) 100%)'
+        : undefined,
+    }}>
+      <div className="window-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {isSimulation && (
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+            color: '#FF8A1F', letterSpacing: '0.16em', textTransform: 'uppercase',
+          }}>
+            Tryb symulacji
+          </span>
         )}
-
-        {/* Divider */}
-        <div
-          style={{
-            width: 1,
-            height: 18,
-            background: 'rgba(255,255,255,0.08)',
-            flexShrink: 0,
-          }}
-        />
-
         <Switch
           checked={isSimulation}
           onChange={(val) => setMode(val ? 'simulation' : 'live')}
           accent={isSimulation ? 'orange' : 'green'}
-          label={isSimulation ? 'SIM' : 'LIVE'}
+          label={isSimulation ? 'SYMULACJA' : 'LIVE'}
         />
       </div>
 
-      {/* ── Center: telemetry status ──────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          flex: 1,
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}
-      >
-        <TelemetryChip
-          icon={online ? <Wifi size={10} /> : <WifiOff size={10} />}
-          label={online ? 'ONLINE' : 'OFFLINE'}
-          status={online ? 'ok' : 'err'}
-        />
-        <TelemetryChip
-          icon={<Satellite size={10} />}
-          label={
-            systemHealth.satelliteCacheStatus === 'fresh'
-              ? 'SAT SYNC'
-              : `SAT STALE/${systemHealth.satelliteCacheAge}H`
-          }
-          status={systemHealth.satelliteCacheStatus === 'fresh' ? 'ok' : 'warn'}
-        />
-        <TelemetryChip
-          icon={<Lock size={10} />}
-          label="AES-256"
-          status="ok"
-        />
-        <TelemetryChip
-          icon={<Brain size={10} />}
-          label={systemHealth.localAiReady ? 'AI READY' : 'RULE-BASED'}
-          status={systemHealth.localAiReady ? 'ok' : 'muted'}
-        />
-
-        {/* RCB / TETRA pills */}
-        <LinkPill
-          label="RCB"
-          connected={systemHealth.rcbLinkStatus === 'connected'}
-        />
-        <LinkPill
-          label="TETRA"
-          connected={systemHealth.tetraLinkStatus === 'connected'}
-        />
-
-        {/* Degraded badge */}
-        {!online && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '3px 8px',
-              borderRadius: 5,
-              background: 'rgba(255,138,31,0.11)',
-              border: '1px solid rgba(255,138,31,0.30)',
-              marginLeft: 4,
-            }}
-          >
-            <ShieldAlert size={10} style={{ color: '#FF8A1F', flexShrink: 0 }} />
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 8,
-                color: '#FF8A1F',
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-              }}
-            >
-              DEGRADED
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Right: operator chip ─────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '6px 12px',
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          flexShrink: 0,
-          cursor: 'default',
-          transition: 'all 0.15s ease',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-        }}
-      >
-        {/* Avatar */}
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            background: 'rgba(255,138,31,0.12)',
-            border: '1px solid rgba(255,138,31,0.28)',
-          }}
-        >
-          <User size={12} style={{ color: '#FF8A1F' }} />
-        </div>
-
-        {/* Info */}
-        <div>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#E6EDF3',
-              letterSpacing: '0.06em',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {operator?.name ?? 'OPERATOR'}
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 8,
-              color: '#3D5060',
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              marginTop: 3,
-              lineHeight: 1,
-            }}
-          >
-            {operator?.role ?? 'commander'} · CL{operator?.clearanceLevel ?? '?'}
-          </div>
-        </div>
-
-        <ChevronDown size={10} style={{ color: '#3D5060', marginLeft: 2, flexShrink: 0 }} />
-      </div>
+      <OperatorMenu operator={operator} />
     </header>
   )
 }
 
-/* ── Telemetry chip ────────────────────────────────────────────────────────── */
-function TelemetryChip({
-  icon,
-  label,
-  status,
-}: {
-  icon: React.ReactNode
-  label: string
-  status: 'ok' | 'err' | 'warn' | 'muted'
-}) {
-  const colors: Record<string, string> = {
-    ok:   '#22C55E',
-    err:  '#EF4444',
-    warn: '#F59E0B',
-    muted:'#66778B',
+function OperatorMenu({ operator }: { operator: Operator | null }) {
+  const { setOperator, addAuditEntry, mode } = useAppStore()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onOutside)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [open])
+
+  function handleLogout() {
+    if (!operator) return
+    addAuditEntry(logAction({
+      operator: operator.name,
+      action: 'logout',
+      details: 'Wylogowanie z systemu',
+      mode,
+    }))
+    setOperator(null)
+    setOpen(false)
   }
-  const color = colors[status]
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 8px',
-        borderRadius: 5,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        color,
-        flexShrink: 0,
-        transition: 'background 0.12s ease',
-      }}
-    >
-      {icon}
-      <span
+    <div ref={ref} className="window-no-drag" style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen(v => !v)}
         style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.10em',
-          textTransform: 'uppercase',
-          whiteSpace: 'nowrap',
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
+          background: open ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
+          border: open ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(255,255,255,0.08)',
+          transition: 'all 0.15s ease',
         }}
       >
-        {label}
-      </span>
-    </div>
-  )
-}
+        <div style={{
+          width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(255,138,31,0.12)', border: '1px solid rgba(255,138,31,0.28)',
+        }}>
+          <User size={12} style={{ color: '#FF8A1F' }} />
+        </div>
 
-/* ── Link status pill ──────────────────────────────────────────────────────── */
-function LinkPill({ label, connected }: { label: string; connected: boolean }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 8px',
-        borderRadius: 5,
-        background: connected ? 'rgba(34,197,94,0.06)' : 'rgba(255,138,31,0.06)',
-        border: connected
-          ? '1px solid rgba(34,197,94,0.18)'
-          : '1px solid rgba(255,138,31,0.18)',
-        flexShrink: 0,
-      }}
-    >
-      <span
-        className={connected ? 'animate-pulse-dot' : undefined}
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: '50%',
-          background: connected ? '#22C55E' : '#FF8A1F',
-          boxShadow: connected
-            ? '0 0 5px rgba(34,197,94,0.7)'
-            : '0 0 5px rgba(255,138,31,0.6)',
-          display: 'block',
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: connected ? '#22C55E' : '#FF8A1F',
-        }}
-      >
-        {label}
-      </span>
+        <div style={{ textAlign: 'left' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600,
+            color: '#E6EDF3', letterSpacing: '0.06em', lineHeight: 1, whiteSpace: 'nowrap',
+          }}>
+            {operator?.name ?? 'OPERATOR'}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 8, color: '#3D5060',
+            letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 3, lineHeight: 1,
+          }}>
+            {operator?.role ?? 'commander'} · CL{operator?.clearanceLevel ?? '?'}
+          </div>
+        </div>
+
+        <ChevronDown
+          size={10}
+          style={{
+            color: '#66778B', marginLeft: 2, flexShrink: 0,
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s ease',
+          }}
+        />
+      </button>
+
+      {open && operator && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            minWidth: 240, padding: '6px 0',
+            background: 'rgba(18, 24, 32, 0.96)',
+            backdropFilter: 'blur(20px) saturate(1.4)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            borderRadius: 10, boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+            zIndex: 100,
+          }}
+        >
+          <div style={{ padding: '10px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: '#E6EDF3',
+            }}>
+              {operator.name}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, color: '#66778B', marginTop: 6, lineHeight: 1.5,
+            }}>
+              {ROLE_LABEL[operator.role]}<br />
+              {operator.unit}<br />
+              Poziom dostępu: {operator.clearanceLevel}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleLogout}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 14px', border: 'none', background: 'transparent',
+              cursor: 'pointer', textAlign: 'left',
+              fontFamily: 'var(--font-mono)', fontSize: 10, color: '#EF4444',
+              letterSpacing: '0.06em',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <LogOut size={12} />
+            Wyloguj
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,10 +1,16 @@
-import { useEffect } from 'react'
-import { GitBranch, Activity, AlertTriangle, Cpu, Radio, Zap, Server, Wifi } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { GitBranch, Activity, AlertTriangle, Cpu, Radio, Zap, Server, Wifi, Droplets, Network, Zap as EnergyIcon } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { StatCard, SectionHeader } from '@/components/ui/Card'
-import { Badge, SeverityBadge, StatusBadge } from '@/components/ui/Badge'
+import { SectionHeader } from '@/components/ui/Card'
+import { SeverityBadge, StatusBadge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusDot } from '@/components/ui/StatusDot'
+import { PageHeader, OnlineBadge } from '@/components/ui/PageHeader'
+import { MetricCard } from '@/components/ui/MetricCard'
+import { ObjectCard } from '@/components/ui/ObjectCard'
+import { Alert } from '@/components/ui/Alert'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/Accordion'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
 
 /* ── Threat gauge ──────────────────────────────────────────────────────────── */
@@ -122,6 +128,7 @@ function ThreatGauge({ level }: { level: number }) {
 /* ── Main component ────────────────────────────────────────────────────────── */
 export function Dashboard() {
   const { alerts, ikObjects, cascadeResult, systemHealth, refreshSystemHealth, drones, missions } = useAppStore()
+  const [dashboardTab, setDashboardTab] = useState('overview')
 
   useEffect(() => {
     refreshSystemHealth()
@@ -155,87 +162,51 @@ export function Dashboard() {
     { label: 'GSM Fallback', ok: systemHealth.gsmFallbackStatus !== 'offline' },
   ]
 
+  const topCriticalAlert = activeAlerts.find(a => a.severity === 'critical')
+
+  const featuredObjects = [
+    { id: ikObjects.find(o => o.criticality >= 4)?.id ?? 'PL-ENRG-WS-0421', title: 'Stacja transformatorowa', status: 'critical' as const, icon: EnergyIcon },
+    { id: ikObjects.find(o => o.category === 'water')?.id ?? 'PL-WATR-KR-0098', title: 'Ujęcie wody', status: 'nominal' as const, icon: Droplets },
+    { id: ikObjects.find(o => o.status === 'degraded')?.id ?? 'PL-TELE-GD-0312', title: 'Węzeł światłowodowy', status: 'warning' as const, icon: Network },
+  ]
+
   return (
-    <div
-      className="tactical-grid"
-      style={{
-        height: '100%',
-        overflowY: 'auto',
-        padding: '24px 28px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 18,
-      }}
-    >
-      {/* ── Page header ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingBottom: 6,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: 3,
-              height: 32,
-              borderRadius: 2,
-              background: 'linear-gradient(180deg, #FF8A1F 0%, rgba(255,138,31,0.15) 100%)',
-              boxShadow: '0 0 10px rgba(255,138,31,0.55)',
-              flexShrink: 0,
-            }}
-          />
-          <div>
-            <h1
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                color: '#E6EDF3',
-                lineHeight: 1,
-              }}
-            >
-              COMMAND DASHBOARD
-            </h1>
-            <p
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 9,
-                color: '#3D5060',
-                marginTop: 5,
-                letterSpacing: '0.12em',
-              }}
-            >
-              STALOWA WOLA · IK AWARENESS · {ikObjects.length} OBIEKTÓW ·{' '}
-              {new Date().toLocaleString('pl-PL', { hour12: false })}
-            </p>
-          </div>
-        </div>
+    <div className="page-content tactical-grid">
+      <PageHeader
+        title="Command Dashboard"
+        subtitle={`STALOWA WOLA · IK AWARENESS · ${ikObjects.length} OBIEKTÓW · ${new Date().toLocaleString('pl-PL', { hour12: false })}`}
+        badge={<OnlineBadge online={systemHealth.online} />}
+      />
 
-        <Badge variant={systemHealth.online ? 'green' : 'orange'} dot pulse={!systemHealth.online}>
-          {systemHealth.online ? 'SYSTEM ONLINE' : 'TRYB DEGRADED'}
-        </Badge>
-      </div>
+      {topCriticalAlert && (
+        <Alert
+          variant="critical"
+          icon={AlertTriangle}
+          title={`CRITICAL · ${topCriticalAlert.title}`}
+          description={topCriticalAlert.description}
+        />
+      )}
 
-      {/* ── KPI row ──────────────────────────────────────────────────── */}
+      <Tabs defaultValue={dashboardTab} onValueChange={setDashboardTab} className="dashboard-tabs">
+        <TabsList>
+          <TabsTrigger value="overview"><Activity className="w-3.5 h-3.5" />Przegląd</TabsTrigger>
+          <TabsTrigger value="objects"><GitBranch className="w-3.5 h-3.5" />Obiekty IK</TabsTrigger>
+          <TabsTrigger value="sources"><Radio className="w-3.5 h-3.5" />Źródła</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+      <div className="ui-stack">
       <div
+        className="ui-grid"
         style={{
-          display: 'grid',
           gridTemplateColumns: 'auto 1fr 1fr 1fr 1fr',
-          gap: 14,
           alignItems: 'stretch',
         }}
       >
         {/* Threat gauge panel */}
         <div
-          className="glass-panel"
+          className="glass-panel ui-panel"
           style={{
-            borderRadius: 16,
-            padding: '20px 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -248,55 +219,45 @@ export function Dashboard() {
           <ThreatGauge level={threatLevel} />
         </div>
 
-        <StatCard
-          label="Active Alerts"
+        <MetricCard
+          label="Aktywne alerty"
           value={activeAlerts.length}
-          sub={`${criticalAlerts.length} krytycznych`}
-          accent={criticalAlerts.length > 0 ? 'danger' : undefined}
-          icon={<AlertTriangle size={14} />}
+          detail={`${criticalAlerts.length} krytycznych`}
+          icon={AlertTriangle}
+          accent={criticalAlerts.length > 0 ? '#EF4444' : '#FF8A1F'}
         />
-        <StatCard
+        <MetricCard
           label="Infra Health"
-          value={infraHealth}
-          unit="%"
-          sub={`${degradedObjects.length} degraded / offline`}
-          accent={infraHealth < 80 ? 'orange' : 'green'}
-          icon={<Activity size={14} />}
+          value={`${infraHealth}%`}
+          detail={`${degradedObjects.length} degraded / offline`}
+          icon={Activity}
+          accent={infraHealth < 80 ? '#FF8A1F' : '#22C55E'}
         />
-        <StatCard
+        <MetricCard
           label="Drone Readiness"
           value={`${availDrones.length}/${drones.length}`}
-          sub={`${activeMissions.length} aktywnych misji`}
-          accent="cyan"
-          icon={<Radio size={14} />}
+          detail={`${activeMissions.length} aktywnych misji`}
+          icon={Radio}
+          accent="#00E5FF"
         />
-        <StatCard
+        <MetricCard
           label="Sync Queue"
           value={systemHealth.syncQueueLength}
-          sub={systemHealth.lastSync ? `Sync: ${formatTimeAgo(systemHealth.lastSync)}` : 'Oczekuje'}
-          accent={systemHealth.syncQueueLength > 0 ? 'orange' : undefined}
-          icon={<Wifi size={14} />}
+          detail={systemHealth.lastSync ? `Sync: ${formatTimeAgo(systemHealth.lastSync)}` : 'Oczekuje'}
+          icon={Wifi}
+          accent={systemHealth.syncQueueLength > 0 ? '#FF8A1F' : '#66778B'}
         />
       </div>
 
       {/* ── Public data sync row ─────────────────────────────────────── */}
-      <div
-        className="glass-panel"
-        style={{ borderRadius: 16, padding: '18px 20px' }}
-      >
+      <div className="glass-panel ui-panel">
         <SectionHeader
           label="Public Data Sync"
           icon={<Activity size={10} />}
           accent="cyan"
         />
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 20,
-          }}
-        >
+        <div className="ui-grid ui-grid-4">
           {Object.entries(systemHealth.publicDataSyncStatus).map(([key, sync]) => (
             <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -337,19 +298,9 @@ export function Dashboard() {
       </div>
 
       {/* ── Bottom 3-col grid ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 14,
-          flex: '1 0 auto',
-        }}
-      >
+      <div className="ui-grid ui-grid-3" style={{ flex: '1 0 auto' }}>
         {/* Active alerts */}
-        <div
-          className="glass-panel"
-          style={{ borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}
-        >
+        <div className="glass-panel ui-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionHeader
             label="Active Alerts"
             icon={<AlertTriangle size={10} />}
@@ -357,15 +308,7 @@ export function Dashboard() {
             accent="danger"
           />
 
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              overflowY: 'auto',
-              maxHeight: 260,
-            }}
-          >
+          <div className="ui-stack" style={{ gap: 6, overflowY: 'auto', maxHeight: 260 }}>
             {activeAlerts.length === 0 ? (
               <div
                 style={{
@@ -422,25 +365,14 @@ export function Dashboard() {
         </div>
 
         {/* Critical objects */}
-        <div
-          className="glass-panel"
-          style={{ borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}
-        >
+        <div className="glass-panel ui-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionHeader
             label="Obiekty krytyczne"
             icon={<GitBranch size={10} />}
             accent="orange"
           />
 
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              overflowY: 'auto',
-              maxHeight: 260,
-            }}
-          >
+          <div className="ui-stack" style={{ gap: 6, overflowY: 'auto', maxHeight: 260 }}>
             {criticalObjects.map(obj => (
               <div
                 key={obj.id}
@@ -487,26 +419,19 @@ export function Dashboard() {
         </div>
 
         {/* System status */}
-        <div
-          className="glass-panel"
-          style={{ borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}
-        >
+        <div className="glass-panel ui-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionHeader
             label="System Status"
             icon={<Cpu size={10} />}
             accent="cyan"
           />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="ui-stack" style={{ gap: 8 }}>
             {sysChecks.map(({ label, ok }) => (
               <div
                 key={label}
+                className="ui-row-item"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '7px 10px',
-                  borderRadius: 7,
                   background: ok ? 'rgba(34,197,94,0.035)' : 'rgba(239,68,68,0.035)',
                   border: `1px solid ${ok ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)'}`,
                 }}
@@ -616,6 +541,41 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+      </div>
+        </TabsContent>
+
+        <TabsContent value="objects">
+          <div className="ui-grid ui-grid-3">
+            {featuredObjects.map(obj => (
+              <ObjectCard key={obj.id} {...obj} />
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sources">
+          <Accordion collapsible defaultValue="i1">
+            <AccordionItem value="i1">
+              <AccordionTrigger>Źródła publiczne (sensor fusion)</AccordionTrigger>
+              <AccordionContent>
+                OpenStreetMap, RCB, IMGW, ENTSO-E, OpenSky, EUMETSAT — synchronizacja offline-first z lokalnym cache.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="i2">
+              <AccordionTrigger>Decision engine — reguły</AccordionTrigger>
+              <AccordionContent>
+                Konfiguracja progów ryzyka kaskady i automatycznych rekomendacji dla operatorów.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="i3">
+              <AccordionTrigger>Skymarshal — dostępne zasoby</AccordionTrigger>
+              <AccordionContent>
+                Drony służb, jednostki terenowe, zespoły reagowania — {availDrones.length} dostępnych z {drones.length}.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </TabsContent>
+      </Tabs>
+
     </div>
   )
 }
