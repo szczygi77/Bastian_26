@@ -31,6 +31,7 @@ export function getSystemHealth(online: boolean, mode: import('@/types').SystemM
       firms: mockSyncStatus(online ? 12 : 90, !online),
       opensky: mockSyncStatus(online ? 1 : 60),
       osm: mockSyncStatus(online ? 120 : 1440),
+      sentinel: mockSyncStatus(online ? 18 : 120, !online),
     },
   }
 }

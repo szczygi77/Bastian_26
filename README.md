@@ -9,11 +9,14 @@ Offline-first platforma świadomości sytuacyjnej infrastruktury krytycznej — 
 ## Uruchomienie
 
 ```bash
+cp .env.example .env   # uzupełnij klucze CDSE (Sentinel) — plik .env nie trafia do gita
 npm install
 npm run dev          # przeglądarka → http://localhost:3000
 npm run electron:dev # aplikacja desktop (Electron)
 npm run electron:build # build .app / .exe / .AppImage
 ```
+
+W trybie **LIVE** aplikacja pobiera m.in. Open-Meteo, OpenSky, NASA FIRMS (opcjonalny klucz) oraz metadane Sentinel-1 z Copernicus Data Space (wymaga `VITE_CDSE_CLIENT_ID` i `VITE_CDSE_CLIENT_SECRET`).
 
 ---
 
@@ -69,7 +72,7 @@ bastion-enterprise/
 | OpenSky Network | `openskyAdapter.ts` | ✅ Real fetch |
 | NASA FIRMS | `firmsAdapter.ts` | ✅ Real (klucz API opcjonalny) |
 | OSM / Overpass | `osmAdapter.ts` | ✅ Tiles via CartoDB Dark |
-| Sentinel-1 SAR | `sentinelMetadataAdapter.ts` | 🔑 Po dostarczeniu klucza |
+| Sentinel-1 SAR (CDSE) | `sentinelAdapter.ts` | ✅ OAuth + katalog OData (`.env`) |
 | RCB / PIONIER | `rcbMockAdapter.ts` | 🔒 Mock (system niejawny) |
 | TETRA | `tetraMockAdapter.ts` | 🔒 Mock |
 | MAVLink / DJI SDK | `mavlinkMockAdapter.ts` | 🔒 Mock (adaptery gotowe) |

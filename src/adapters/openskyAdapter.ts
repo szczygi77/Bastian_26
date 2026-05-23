@@ -1,18 +1,46 @@
+import { envConfig } from '@/config/env'
 import type { OpenSkyFlight, SyncStatus } from '@/types'
 
-const BBOX = { minLat: 50.3, maxLat: 50.9, minLon: 21.7, maxLon: 22.5 }
-const TIMEOUT_MS = 10000
+/** Bbox Stalowa Wola (zgodny z konfiguracją użytkownika) */
+const BBOX = { minLat: 50.5, maxLat: 50.7, minLon: 22.0, maxLon: 22.2 }
+const TIMEOUT_MS = 12000
 
 let lastSync: Date | null = null
 let cachedFlights: OpenSkyFlight[] = []
+
+function buildAuthHeaders(): HeadersInit {
+  const headers: HeadersInit = { Accept: 'application/json' }
+
+  if (envConfig.openskyBearerToken) {
+    headers.Authorization = `Bearer ${envConfig.openskyBearerToken}`
+    return headers
+  }
+
+  if (envConfig.openskyUsername && envConfig.openskyPassword) {
+    const encoded = btoa(
+      `${envConfig.openskyUsername}:${envConfig.openskyPassword}`
+    )
+    headers.Authorization = `Basic ${encoded}`
+    return headers
+  }
+
+  return headers
+}
 
 export async function fetchOpenSkyFlights(): Promise<OpenSkyFlight[]> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const url = `https://opensky-network.org/api/states/all?lamin=${BBOX.minLat}&lomin=${BBOX.minLon}&lamax=${BBOX.maxLat}&lomax=${BBOX.maxLon}`
-    const res = await fetch(url, { signal: controller.signal })
+    const url =
+      `https://opensky-network.org/api/states/all` +
+      `?lamin=${BBOX.minLat}&lomin=${BBOX.minLon}` +
+      `&lamax=${BBOX.maxLat}&lomax=${BBOX.maxLon}`
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: buildAuthHeaders(),
+    })
     clearTimeout(timeoutId)
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -44,13 +72,34 @@ export async function fetchOpenSkyFlights(): Promise<OpenSkyFlight[]> {
 
 function getMockFlights(): OpenSkyFlight[] {
   return [
-    { icao24: 'abc123', callsign: 'LOT431', latitude: 50.61, longitude: 22.12, altitude: 8500, velocity: 820, heading: 270, lastContact: Date.now() / 1000 },
-    { icao24: 'def456', callsign: 'RYR8821', latitude: 50.45, longitude: 21.95, altitude: 11000, velocity: 890, heading: 85, lastContact: Date.now() / 1000 },
+    {
+      icao24: 'abc123',
+      callsign: 'LOT431',
+      latitude: 50.61,
+      longitude: 22.12,
+      altitude: 8500,
+      velocity: 820,
+      heading: 270,
+      lastContact: Date.now() / 1000,
+    },
+    {
+      icao24: 'def456',
+      callsign: 'RYR8821',
+      latitude: 50.55,
+      longitude: 22.08,
+      altitude: 11000,
+      velocity: 890,
+      heading: 85,
+      lastContact: Date.now() / 1000,
+    },
   ]
 }
 
 export function getOpenSkySyncStatus(): SyncStatus {
-  const dataAge = lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 60000) : 999
+  const dataAge = lastSync
+    ? Math.floor((Date.now() - lastSync.getTime()) / 60000)
+    : 999
+
   return {
     status: dataAge < 5 ? 'synced' : 'offline',
     lastSync,

@@ -16,6 +16,7 @@ import type {
 import { IK_OBJECTS } from '@/data/stalowa-wola'
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
+import { refreshPublicDataLayer } from '@/services/dataSyncService'
 import { getSystemHealth } from '@/services/systemHealthService'
 
 interface AppState {
@@ -69,7 +70,7 @@ interface AppState {
 
   // System Health
   systemHealth: SystemHealth
-  refreshSystemHealth: () => void
+  refreshSystemHealth: () => Promise<void>
 
   // UI
   sidebarExpanded: boolean
@@ -148,8 +149,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({ auditEntries: [entry, ...state.auditEntries] })),
 
   systemHealth: getSystemHealth(navigator.onLine, 'live'),
-  refreshSystemHealth: () =>
-    set(state => ({ systemHealth: getSystemHealth(state.online, state.mode) })),
+  refreshSystemHealth: async () => {
+    const state = get()
+    const base = getSystemHealth(state.online, state.mode)
+
+    if (state.mode !== 'live' || !state.online) {
+      set({ systemHealth: base })
+      return
+    }
+
+    try {
+      const sync = await refreshPublicDataLayer()
+      set({
+        systemHealth: {
+          ...base,
+          publicDataSyncStatus: sync.publicDataSyncStatus,
+          satelliteCacheStatus: sync.satelliteCacheStatus,
+          satelliteCacheAge: sync.satelliteCacheAge,
+          lastSync: new Date(),
+        },
+      })
+    } catch {
+      set({ systemHealth: base })
+    }
+  },
 
   sidebarExpanded: true,
   setSidebarExpanded: (val) => set({ sidebarExpanded: val }),

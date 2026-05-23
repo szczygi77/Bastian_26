@@ -8,11 +8,10 @@ import { Switch } from '@/components/ui/Switch'
 import { StatusBadge } from '@/components/ui/Badge'
 import { fetchWeather } from '@/adapters/weatherAdapter'
 import { fetchOpenSkyFlights } from '@/adapters/openskyAdapter'
-import type { IKObject, WeatherData, OpenSkyFlight } from '@/types'
-
-// Dark tactical tile layer
-const DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-const DARK_TILE_ATTR = '&copy; <a href="https://carto.com">CARTO</a>'
+import { fetchFIRMSAlerts } from '@/adapters/firmsAdapter'
+import { envConfig } from '@/config/env'
+import { MAP_LAYERS } from '@/config/mapLayers'
+import type { FIRMSAlert, IKObject, WeatherData, OpenSkyFlight } from '@/types'
 
 function createIKMarker(obj: IKObject, isAffected: boolean): L.CircleMarker {
   const color = isAffected ? '#EF4444' : statusColor(obj.status)
@@ -34,6 +33,7 @@ interface LayerControls {
   dependencyLinks: boolean
   aviation: boolean
   weather: boolean
+  fires: boolean
 }
 
 export function TacticalMap() {
@@ -43,8 +43,10 @@ export function TacticalMap() {
   const linesRef = useRef<L.Polyline[]>([])
   const zonesRef = useRef<L.Circle[]>([])
   const flightMarkersRef = useRef<L.Marker[]>([])
+  const fireMarkersRef = useRef<L.CircleMarker[]>([])
+  const baseLayersRef = useRef<Record<string, L.TileLayer>>({})
 
-  const { ikObjects, cascadeResult, drones, missions } = useAppStore()
+  const { ikObjects, cascadeResult, drones } = useAppStore()
 
   const [layers, setLayers] = useState<LayerControls>({
     ikObjects: true,
@@ -52,9 +54,11 @@ export function TacticalMap() {
     dependencyLinks: true,
     aviation: false,
     weather: false,
+    fires: false,
   })
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [flights, setFlights] = useState<OpenSkyFlight[]>([])
+  const [fires, setFires] = useState<FIRMSAlert[]>([])
   const [selectedObj, setSelectedObj] = useState<IKObject | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -68,7 +72,19 @@ export function TacticalMap() {
       attributionControl: false,
     })
 
-    L.tileLayer(DARK_TILE_URL, { attribution: DARK_TILE_ATTR, maxZoom: 19 }).addTo(map)
+    const baseLayers: Record<string, L.TileLayer> = {}
+    for (const layer of Object.values(MAP_LAYERS)) {
+      baseLayers[layer.label] = L.tileLayer(layer.url, {
+        attribution: layer.attribution,
+        maxZoom: layer.maxZoom,
+      })
+    }
+    baseLayersRef.current = baseLayers
+    baseLayers[MAP_LAYERS.tacticalDark.label].addTo(map)
+
+    L.control
+      .layers(baseLayers, undefined, { position: 'topleft', collapsed: true })
+      .addTo(map)
     L.control.attribution({ position: 'bottomright', prefix: '' }).addTo(map)
 
     mapInstance.current = map
@@ -188,6 +204,39 @@ export function TacticalMap() {
     fetchWeather().then(setWeather)
   }, [layers.weather])
 
+  // NASA FIRMS fires
+  useEffect(() => {
+    if (!layers.fires) {
+      fireMarkersRef.current.forEach(m => m.remove())
+      fireMarkersRef.current = []
+      return
+    }
+    fetchFIRMSAlerts(envConfig.firmsApiKey).then(setFires)
+  }, [layers.fires])
+
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map || !layers.fires) return
+
+    fireMarkersRef.current.forEach(m => m.remove())
+    fireMarkersRef.current = []
+
+    for (const fire of fires) {
+      const m = L.circleMarker([fire.latitude, fire.longitude], {
+        radius: 8,
+        fillColor: '#FF8A1F',
+        color: '#EF4444',
+        weight: 2,
+        fillOpacity: 0.75,
+      })
+        .addTo(map)
+        .bindTooltip(
+          `FIRMS · ${fire.instrument}<br/>Conf: ${fire.confidence}% · ${fire.brightness}K`
+        )
+      fireMarkersRef.current.push(m)
+    }
+  }, [fires, layers.fires])
+
   return (
     <div className="h-full flex flex-col">
       {/* Controls */}
@@ -199,7 +248,7 @@ export function TacticalMap() {
             checked={layers[key]}
             onChange={val => setLayers(l => ({ ...l, [key]: val }))}
             label={key.replace(/([A-Z])/g, ' $1').toUpperCase()}
-            variant="cyan"
+            accent="cyan"
           />
         ))}
         <Button variant="secondary" size="sm" loading={loading} onClick={loadFlights} className="ml-auto">
@@ -207,7 +256,11 @@ export function TacticalMap() {
         </Button>
         {weather && layers.weather && (
           <div className="text-[10px] font-mono text-[#94A3B8] ml-4">
-            🌤 {weather.temperature.toFixed(1)}°C · Wind {weather.windSpeed}km/h · {weather.condition}
+            {weather.temperature.toFixed(1)}°C · w10m {weather.windSpeed} km/h
+            {weather.windSpeed180m != null && ` · w180m ${weather.windSpeed180m} km/h`}
+            {weather.cloudCover != null && ` · chm. ${weather.cloudCover}%`}
+            {weather.rainMm != null && weather.rainMm > 0 && ` · opad ${weather.rainMm} mm`}
+            {' · '}{weather.condition}
           </div>
         )}
       </div>

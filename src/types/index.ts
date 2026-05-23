@@ -273,6 +273,7 @@ export interface SystemHealth {
     firms: SyncStatus
     opensky: SyncStatus
     osm: SyncStatus
+    sentinel: SyncStatus
   }
 }
 
@@ -324,6 +325,11 @@ export interface WeatherData {
   visibility: number
   condition: string
   lastUpdate: Date
+  /** Rozszerzone pola z Open-Meteo hourly */
+  cloudCover?: number
+  rainMm?: number
+  windSpeed180m?: number
+  windDirection80m?: number
 }
 
 export interface FIRMSAlert {
