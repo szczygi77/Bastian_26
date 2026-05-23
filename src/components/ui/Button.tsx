@@ -7,59 +7,125 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
 }
 
+const SIZE_STYLES: Record<string, React.CSSProperties> = {
+  xs: { padding: '4px 10px', fontSize: 9,  borderRadius: 6  },
+  sm: { padding: '6px 12px', fontSize: 10, borderRadius: 8  },
+  md: { padding: '8px 16px', fontSize: 11, borderRadius: 10 },
+  lg: { padding: '10px 22px', fontSize: 12, borderRadius: 12 },
+}
+
+const VARIANT_STYLES: Record<string, React.CSSProperties> = {
+  primary: {
+    background: 'rgba(255,138,31,0.10)',
+    color: '#FF8A1F',
+    border: '1px solid rgba(255,138,31,0.30)',
+  },
+  secondary: {
+    background: 'rgba(255,255,255,0.05)',
+    color: '#94A3B8',
+    border: '1px solid rgba(255,255,255,0.09)',
+  },
+  danger: {
+    background: 'rgba(239,68,68,0.09)',
+    color: '#EF4444',
+    border: '1px solid rgba(239,68,68,0.25)',
+  },
+  ghost: {
+    background: 'transparent',
+    color: '#66778B',
+    border: '1px solid transparent',
+  },
+}
+
+const VARIANT_HOVER: Record<string, React.CSSProperties> = {
+  primary: {
+    background: 'rgba(255,138,31,0.18)',
+    border: '1px solid rgba(255,138,31,0.55)',
+    boxShadow: '0 0 18px rgba(255,138,31,0.30), 0 0 5px rgba(255,138,31,0.20)',
+  },
+  secondary: {
+    background: 'rgba(255,255,255,0.09)',
+    color: '#E6EDF3',
+    border: '1px solid rgba(255,138,31,0.22)',
+  },
+  danger: {
+    background: 'rgba(239,68,68,0.16)',
+    border: '1px solid rgba(239,68,68,0.50)',
+    boxShadow: '0 0 18px rgba(239,68,68,0.28)',
+  },
+  ghost: {
+    background: 'rgba(255,255,255,0.05)',
+    color: '#94A3B8',
+  },
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'secondary', size = 'md', loading, disabled, className, children, ...props }, ref) => {
+  ({ variant = 'secondary', size = 'md', loading, disabled, className, children, style, ...props }, ref) => {
+    const isDisabled = disabled || loading
+
+    const baseStyle: React.CSSProperties = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 7,
+      fontFamily: 'var(--font-mono)',
+      fontWeight: 500,
+      textTransform: 'uppercase',
+      letterSpacing: '0.10em',
+      cursor: isDisabled ? 'not-allowed' : 'pointer',
+      opacity: isDisabled ? 0.40 : 1,
+      pointerEvents: isDisabled ? 'none' : undefined,
+      transition: 'all 0.18s ease',
+      outline: 'none',
+      userSelect: 'none',
+      whiteSpace: 'nowrap',
+      ...SIZE_STYLES[size],
+      ...VARIANT_STYLES[variant],
+      ...style,
+    }
+
+    function applyHover(e: React.MouseEvent<HTMLButtonElement>) {
+      if (isDisabled) return
+      Object.assign(e.currentTarget.style, VARIANT_HOVER[variant])
+      e.currentTarget.style.transform = 'translateY(-0.5px)'
+    }
+
+    function removeHover(e: React.MouseEvent<HTMLButtonElement>) {
+      Object.assign(e.currentTarget.style, VARIANT_STYLES[variant])
+      e.currentTarget.style.transform = ''
+      e.currentTarget.style.boxShadow = ''
+    }
+
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
-        className={cn(
-          // Base
-          'relative inline-flex items-center justify-center gap-2 select-none',
-          'font-mono font-medium uppercase tracking-[0.10em] transition-all duration-200',
-          'border focus-visible:outline-none',
-          // Size
-          size === 'xs' && 'px-2.5 py-1 text-[9px] rounded-[6px]',
-          size === 'sm' && 'px-3 py-1.5 text-[10px] rounded-[8px]',
-          size === 'md' && 'px-4 py-2 text-[11px] rounded-[14px]',
-          size === 'lg' && 'px-6 py-2.5 text-[12px] rounded-[14px]',
-          // Variants
-          variant === 'primary' && [
-            'bg-[rgba(255,138,31,0.10)] text-[#FF8A1F]',
-            'border-[rgba(255,138,31,0.30)]',
-            'hover:bg-[rgba(255,138,31,0.18)] hover:border-[rgba(255,138,31,0.55)]',
-            'hover:shadow-[0_0_16px_rgba(255,138,31,0.30),0_0_4px_rgba(255,138,31,0.20)]',
-            'active:bg-[rgba(255,138,31,0.07)] active:scale-[0.99]',
-          ],
-          variant === 'secondary' && [
-            'bg-[rgba(255,255,255,0.04)] text-[#94A3B8]',
-            'border-[rgba(255,255,255,0.08)]',
-            'hover:bg-[rgba(255,255,255,0.08)] hover:text-[#E6EDF3]',
-            'hover:border-[rgba(255,138,31,0.25)]',
-            'active:bg-[rgba(255,255,255,0.03)]',
-          ],
-          variant === 'danger' && [
-            'bg-[rgba(239,68,68,0.09)] text-[#EF4444]',
-            'border-[rgba(239,68,68,0.25)]',
-            'hover:bg-[rgba(239,68,68,0.16)] hover:border-[rgba(239,68,68,0.50)]',
-            'hover:shadow-[0_0_16px_rgba(239,68,68,0.30),0_0_4px_rgba(239,68,68,0.20)]',
-            'active:scale-[0.99]',
-          ],
-          variant === 'ghost' && [
-            'bg-transparent text-[#66778B] border-transparent',
-            'hover:bg-[rgba(255,255,255,0.05)] hover:text-[#94A3B8]',
-          ],
-          (disabled || loading) && 'opacity-40 cursor-not-allowed pointer-events-none',
-          className
-        )}
+        disabled={isDisabled}
+        className={cn(className)}
+        style={baseStyle}
+        onMouseEnter={applyHover}
+        onMouseLeave={removeHover}
+        onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0px) scale(0.99)' }}
+        onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-0.5px)' }}
         {...props}
       >
         {loading && (
-          <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+          <span
+            style={{
+              width: 12,
+              height: 12,
+              border: '1.5px solid currentColor',
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 0.7s linear infinite',
+              display: 'block',
+              flexShrink: 0,
+            }}
+          />
         )}
         {children}
       </button>
     )
   }
 )
+
 Button.displayName = 'Button'

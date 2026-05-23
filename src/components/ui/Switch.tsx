@@ -1,5 +1,3 @@
-import { cn } from '@/utils/cn'
-
 interface SwitchProps {
   checked: boolean
   onChange: (v: boolean) => void
@@ -9,60 +7,124 @@ interface SwitchProps {
   className?: string
 }
 
-export function Switch({ checked, onChange, label, disabled, accent = 'orange', className }: SwitchProps) {
-  const trackOn = {
-    orange: 'bg-[rgba(255,138,31,0.18)] border-[rgba(255,138,31,0.50)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.5),0_0_8px_rgba(255,138,31,0.20)]',
-    green:  'bg-[rgba(34,197,94,0.18)] border-[rgba(34,197,94,0.50)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.5),0_0_8px_rgba(34,197,94,0.20)]',
-    cyan:   'bg-[rgba(0,229,255,0.12)] border-[rgba(0,229,255,0.40)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.5),0_0_8px_rgba(0,229,255,0.18)]',
-  }
-  const thumbOn = {
-    orange: 'bg-[#FF8A1F] shadow-[0_0_6px_rgba(255,138,31,0.60)]',
-    green:  'bg-[#22C55E] shadow-[0_0_6px_rgba(34,197,94,0.55)]',
-    cyan:   'bg-[#00E5FF] shadow-[0_0_6px_rgba(0,229,255,0.50)]',
-  }
+const ACCENT_ON: Record<string, { track: string; trackBorder: string; trackShadow: string; thumb: string; thumbShadow: string }> = {
+  orange: {
+    track: 'rgba(255,138,31,0.16)',
+    trackBorder: 'rgba(255,138,31,0.48)',
+    trackShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 0 9px rgba(255,138,31,0.18)',
+    thumb: '#FF8A1F',
+    thumbShadow: '0 0 7px rgba(255,138,31,0.65)',
+  },
+  green: {
+    track: 'rgba(34,197,94,0.16)',
+    trackBorder: 'rgba(34,197,94,0.48)',
+    trackShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 0 9px rgba(34,197,94,0.18)',
+    thumb: '#22C55E',
+    thumbShadow: '0 0 7px rgba(34,197,94,0.60)',
+  },
+  cyan: {
+    track: 'rgba(0,229,255,0.10)',
+    trackBorder: 'rgba(0,229,255,0.40)',
+    trackShadow: 'inset 0 1px 3px rgba(0,0,0,0.5), 0 0 9px rgba(0,229,255,0.16)',
+    thumb: '#00E5FF',
+    thumbShadow: '0 0 7px rgba(0,229,255,0.55)',
+  },
+}
+
+const NOTCH_ACTIVE: Record<string, string> = {
+  orange: 'rgba(255,138,31,0.50)',
+  green:  'rgba(34,197,94,0.50)',
+  cyan:   'rgba(0,229,255,0.50)',
+}
+
+export function Switch({ checked, onChange, label, disabled, accent = 'orange' }: SwitchProps) {
+  const on = ACCENT_ON[accent]
 
   return (
-    <label className={cn(
-      'inline-flex items-center gap-2.5 cursor-pointer select-none',
-      disabled && 'opacity-40 cursor-not-allowed',
-      className
-    )}>
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        userSelect: 'none',
+        opacity: disabled ? 0.40 : 1,
+      }}
+    >
+      {/* Track */}
       <span
         role="switch"
         aria-checked={checked}
         onClick={() => !disabled && onChange(!checked)}
-        className={cn(
-          'relative inline-flex w-10 h-5 rounded-[5px] border transition-all duration-200',
-          checked
-            ? trackOn[accent]
-            : 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.12)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]'
-        )}
+        style={{
+          position: 'relative',
+          display: 'inline-flex',
+          width: 40,
+          height: 20,
+          borderRadius: 5,
+          border: `1px solid ${checked ? on.trackBorder : 'rgba(255,255,255,0.13)'}`,
+          background: checked ? on.track : 'rgba(255,255,255,0.04)',
+          boxShadow: checked ? on.trackShadow : 'inset 0 1px 3px rgba(0,0,0,0.5)',
+          transition: 'all 0.20s ease',
+          flexShrink: 0,
+        }}
       >
-        {/* Track notches */}
-        <span className="absolute inset-x-1 top-1/2 -translate-y-1/2 flex gap-[3px]">
-          {[0,1,2,3].map(i => (
+        {/* Notch ticks */}
+        <span
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3,
+            padding: '0 6px',
+          }}
+        >
+          {[0, 1, 2, 3].map(i => (
             <span
               key={i}
-              className={cn(
-                'h-[6px] w-px rounded-full transition-all duration-200',
-                checked && i < 2
-                  ? (accent === 'orange' ? 'bg-[rgba(255,138,31,0.5)]' : accent === 'green' ? 'bg-[rgba(34,197,94,0.5)]' : 'bg-[rgba(0,229,255,0.5)]')
-                  : 'bg-[rgba(255,255,255,0.10)]'
-              )}
+              style={{
+                width: 1,
+                height: 7,
+                borderRadius: 1,
+                flexShrink: 0,
+                background: checked && i < 2 ? NOTCH_ACTIVE[accent] : 'rgba(255,255,255,0.10)',
+                transition: 'background 0.20s ease',
+              }}
             />
           ))}
         </span>
+
         {/* Thumb */}
-        <span className={cn(
-          'absolute top-[3px] w-3.5 h-3.5 rounded-[3px] transition-all duration-200',
-          'border border-[rgba(0,0,0,0.3)]',
-          checked
-            ? cn('left-[calc(100%-18px)]', thumbOn[accent])
-            : 'left-[3px] bg-[#3D5060] shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
-        )} />
+        <span
+          style={{
+            position: 'absolute',
+            top: 3,
+            left: checked ? 'calc(100% - 17px)' : 3,
+            width: 14,
+            height: 14,
+            borderRadius: 3,
+            border: '1px solid rgba(0,0,0,0.30)',
+            background: checked ? on.thumb : '#3D5060',
+            boxShadow: checked ? on.thumbShadow : '0 1px 3px rgba(0,0,0,0.5)',
+            transition: 'left 0.20s ease, background 0.20s ease, box-shadow 0.20s ease',
+          }}
+        />
       </span>
+
       {label && (
-        <span className="font-mono text-[10px] text-[#94A3B8] uppercase tracking-[0.10em]">{label}</span>
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: '#94A3B8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.10em',
+          }}
+        >
+          {label}
+        </span>
       )}
     </label>
   )

@@ -1,7 +1,6 @@
-import { Wifi, WifiOff, Lock, Satellite, Brain, User, ShieldAlert } from 'lucide-react'
+import { Wifi, WifiOff, Lock, Satellite, Brain, User, ShieldAlert, ChevronDown } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Switch } from '@/components/ui/Switch'
-import { StatusDot } from '@/components/ui/StatusDot'
 
 export function Topbar() {
   const { mode, setMode, online, systemHealth, operator } = useAppStore()
@@ -10,44 +9,100 @@ export function Topbar() {
   return (
     <header
       style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 48,
+        padding: '0 20px',
+        zIndex: 10,
         background: isSimulation
-          ? 'linear-gradient(90deg, rgba(255,138,31,0.08) 0%, rgba(11,17,23,0.96) 100%)'
-          : 'rgba(11,17,23,0.96)',
+          ? 'linear-gradient(90deg, rgba(255,138,31,0.07) 0%, rgba(11,17,23,0.97) 100%)'
+          : 'rgba(11,17,23,0.97)',
         backdropFilter: 'blur(20px) saturate(1.3)',
         WebkitBackdropFilter: 'blur(20px) saturate(1.3)',
         borderBottom: isSimulation
-          ? '1px solid rgba(255,138,31,0.18)'
+          ? '1px solid rgba(255,138,31,0.16)'
           : '1px solid rgba(255,255,255,0.06)',
+        gap: 16,
       }}
-      className="flex-shrink-0 flex items-center justify-between px-4 h-11 z-10"
     >
-      {/* Left: mode indicator + switch */}
-      <div className="flex items-center gap-3">
+      {/* ── Left: mode indicator ─────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         {isSimulation ? (
           <div
-            className="flex items-center gap-2 px-2.5 py-1 rounded-[6px]"
             style={{
-              background: 'rgba(255,138,31,0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '4px 10px',
+              borderRadius: 6,
+              background: 'rgba(255,138,31,0.11)',
               border: '1px solid rgba(255,138,31,0.28)',
             }}
           >
             <span
-              className="w-1.5 h-1.5 bg-[#FF8A1F] rounded-full animate-pulse-dot"
-              style={{ boxShadow: '0 0 6px rgba(255,138,31,0.7)' }}
+              className="animate-pulse-dot"
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#FF8A1F',
+                boxShadow: '0 0 7px rgba(255,138,31,0.75)',
+                display: 'block',
+                flexShrink: 0,
+              }}
             />
-            <span className="font-mono text-[9px] font-bold text-[#FF8A1F] tracking-[0.16em]">SIMULATION MODE</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                fontWeight: 700,
+                color: '#FF8A1F',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+              }}
+            >
+              SIMULATION MODE
+            </span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span
-              className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse-dot"
-              style={{ boxShadow: '0 0 6px rgba(34,197,94,0.7)' }}
+              className="animate-pulse-dot"
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#22C55E',
+                boxShadow: '0 0 7px rgba(34,197,94,0.75)',
+                display: 'block',
+                flexShrink: 0,
+              }}
             />
-            <span className="font-mono text-[9px] text-[#22C55E] tracking-[0.14em]">LIVE FEED</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                color: '#22C55E',
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+              }}
+            >
+              LIVE FEED
+            </span>
           </div>
         )}
 
-        <div className="w-px h-4 bg-[rgba(255,255,255,0.08)]" />
+        {/* Divider */}
+        <div
+          style={{
+            width: 1,
+            height: 18,
+            background: 'rgba(255,255,255,0.08)',
+            flexShrink: 0,
+          }}
+        />
 
         <Switch
           checked={isSimulation}
@@ -57,91 +112,249 @@ export function Topbar() {
         />
       </div>
 
-      {/* Center: tactical status readouts */}
-      <div className="flex items-center gap-5">
-        <TelemetryItem
+      {/* ── Center: telemetry status ──────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          flex: 1,
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <TelemetryChip
           icon={online ? <Wifi size={10} /> : <WifiOff size={10} />}
           label={online ? 'ONLINE' : 'OFFLINE'}
-          ok={online}
+          status={online ? 'ok' : 'err'}
         />
-        <TelemetryItem
+        <TelemetryChip
           icon={<Satellite size={10} />}
-          label={`SAT ${systemHealth.satelliteCacheStatus === 'fresh' ? 'SYNC' : `STALE/${systemHealth.satelliteCacheAge}H`}`}
-          ok={systemHealth.satelliteCacheStatus === 'fresh'}
-          warn={systemHealth.satelliteCacheStatus !== 'fresh'}
+          label={
+            systemHealth.satelliteCacheStatus === 'fresh'
+              ? 'SAT SYNC'
+              : `SAT STALE/${systemHealth.satelliteCacheAge}H`
+          }
+          status={systemHealth.satelliteCacheStatus === 'fresh' ? 'ok' : 'warn'}
         />
-        <TelemetryItem
+        <TelemetryChip
           icon={<Lock size={10} />}
           label="AES-256"
-          ok
+          status="ok"
         />
-        <TelemetryItem
+        <TelemetryChip
           icon={<Brain size={10} />}
           label={systemHealth.localAiReady ? 'AI READY' : 'RULE-BASED'}
-          ok={systemHealth.localAiReady}
-          neutral={!systemHealth.localAiReady}
+          status={systemHealth.localAiReady ? 'ok' : 'muted'}
         />
-        <StatusDot color="green" label="RCB" pulse={systemHealth.rcbLinkStatus !== 'connected'} />
-        <StatusDot
-          color={systemHealth.tetraLinkStatus === 'connected' ? 'green' : 'warning'}
+
+        {/* RCB / TETRA pills */}
+        <LinkPill
+          label="RCB"
+          connected={systemHealth.rcbLinkStatus === 'connected'}
+        />
+        <LinkPill
           label="TETRA"
+          connected={systemHealth.tetraLinkStatus === 'connected'}
         />
+
+        {/* Degraded badge */}
         {!online && (
           <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-[5px]"
-            style={{ background: 'rgba(255,138,31,0.12)', border: '1px solid rgba(255,138,31,0.30)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '3px 8px',
+              borderRadius: 5,
+              background: 'rgba(255,138,31,0.11)',
+              border: '1px solid rgba(255,138,31,0.30)',
+              marginLeft: 4,
+            }}
           >
-            <ShieldAlert size={10} className="text-[#FF8A1F]" />
-            <span className="font-mono text-[8px] text-[#FF8A1F] tracking-[0.12em]">DEGRADED</span>
+            <ShieldAlert size={10} style={{ color: '#FF8A1F', flexShrink: 0 }} />
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 8,
+                color: '#FF8A1F',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+              }}
+            >
+              DEGRADED
+            </span>
           </div>
         )}
       </div>
 
-      {/* Right: operator chip */}
+      {/* ── Right: operator chip ─────────────────────────────────────── */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 rounded-[10px]"
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '6px 12px',
+          borderRadius: 10,
           background: 'rgba(255,255,255,0.04)',
           border: '1px solid rgba(255,255,255,0.08)',
+          flexShrink: 0,
+          cursor: 'default',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
         }}
       >
+        {/* Avatar */}
         <div
-          className="w-5 h-5 rounded-[5px] flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(255,138,31,0.12)', border: '1px solid rgba(255,138,31,0.25)' }}
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            background: 'rgba(255,138,31,0.12)',
+            border: '1px solid rgba(255,138,31,0.28)',
+          }}
         >
-          <User size={10} className="text-[#FF8A1F]" />
+          <User size={12} style={{ color: '#FF8A1F' }} />
         </div>
+
+        {/* Info */}
         <div>
-          <div className="font-mono text-[10px] text-[#E6EDF3] tracking-wider leading-none">
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              fontWeight: 600,
+              color: '#E6EDF3',
+              letterSpacing: '0.06em',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
             {operator?.name ?? 'OPERATOR'}
           </div>
-          <div className="font-mono text-[8px] text-[#3D5060] tracking-[0.14em] uppercase mt-0.5">
-            {operator?.role ?? 'commander'}
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 8,
+              color: '#3D5060',
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              marginTop: 3,
+              lineHeight: 1,
+            }}
+          >
+            {operator?.role ?? 'commander'} · CL{operator?.clearanceLevel ?? '?'}
           </div>
         </div>
+
+        <ChevronDown size={10} style={{ color: '#3D5060', marginLeft: 2, flexShrink: 0 }} />
       </div>
     </header>
   )
 }
 
-function TelemetryItem({
+/* ── Telemetry chip ────────────────────────────────────────────────────────── */
+function TelemetryChip({
   icon,
   label,
-  ok,
-  warn,
-  neutral,
+  status,
 }: {
   icon: React.ReactNode
   label: string
-  ok?: boolean
-  warn?: boolean
-  neutral?: boolean
+  status: 'ok' | 'err' | 'warn' | 'muted'
 }) {
-  const color = ok ? 'text-[#22C55E]' : warn ? 'text-[#F59E0B]' : neutral ? 'text-[#66778B]' : 'text-[#EF4444]'
+  const colors: Record<string, string> = {
+    ok:   '#22C55E',
+    err:  '#EF4444',
+    warn: '#F59E0B',
+    muted:'#66778B',
+  }
+  const color = colors[status]
+
   return (
-    <div className={`flex items-center gap-1.5 font-mono text-[9px] tracking-[0.10em] ${color}`}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 8px',
+        borderRadius: 5,
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        color,
+        flexShrink: 0,
+        transition: 'background 0.12s ease',
+      }}
+    >
       {icon}
-      <span>{label}</span>
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.10em',
+          textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/* ── Link status pill ──────────────────────────────────────────────────────── */
+function LinkPill({ label, connected }: { label: string; connected: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 8px',
+        borderRadius: 5,
+        background: connected ? 'rgba(34,197,94,0.06)' : 'rgba(255,138,31,0.06)',
+        border: connected
+          ? '1px solid rgba(34,197,94,0.18)'
+          : '1px solid rgba(255,138,31,0.18)',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        className={connected ? 'animate-pulse-dot' : undefined}
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: connected ? '#22C55E' : '#FF8A1F',
+          boxShadow: connected
+            ? '0 0 5px rgba(34,197,94,0.7)'
+            : '0 0 5px rgba(255,138,31,0.6)',
+          display: 'block',
+          flexShrink: 0,
+        }}
+      />
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: connected ? '#22C55E' : '#FF8A1F',
+        }}
+      >
+        {label}
+      </span>
     </div>
   )
 }
