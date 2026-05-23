@@ -1,4 +1,5 @@
 import type { IKObject } from '@/types'
+import { IK_VERIFIED_COORDINATES as C } from '@/data/ikGeocoding'
 
 export const IK_OBJECTS: IKObject[] = [
   {
@@ -6,7 +7,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Huta Stalowa Wola S.A.',
     shortName: 'HSW',
     category: 'military',
-    coordinates: [50.5814, 22.0419],
+    coordinates: C.hsw,
     criticality: 5,
     status: 'operational',
     owner: 'Skarb Państwa / HSW S.A.',
@@ -24,7 +25,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Elektrociepłownia Stalowa Wola',
     shortName: 'ELC',
     category: 'energy',
-    coordinates: [50.5921, 22.0511],
+    coordinates: C.elc,
     criticality: 5,
     status: 'operational',
     owner: 'PGE Energia Ciepła S.A.',
@@ -42,7 +43,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Szpital Powiatowy w Stalowej Woli',
     shortName: 'SZP',
     category: 'emergency',
-    coordinates: [50.5732, 22.0328],
+    coordinates: C.szpital,
     criticality: 4,
     status: 'operational',
     owner: 'Powiat Stalowowolski',
@@ -60,7 +61,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Stacja Uzdatniania Wody',
     shortName: 'SUW',
     category: 'water',
-    coordinates: [50.5685, 22.0189],
+    coordinates: C.wod,
     criticality: 4,
     status: 'operational',
     owner: 'MPWiK Stalowa Wola',
@@ -78,7 +79,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Most na Sanie / DK77',
     shortName: 'MOST',
     category: 'transport',
-    coordinates: [50.5598, 22.0274],
+    coordinates: C.most,
     criticality: 4,
     status: 'operational',
     owner: 'GDDKiA',
@@ -96,7 +97,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Centrum Zarządzania Kryzysowego',
     shortName: 'CZK',
     category: 'government',
-    coordinates: [50.5801, 22.0356],
+    coordinates: C.czk,
     criticality: 5,
     status: 'operational',
     owner: 'Starostwo Powiatowe',
@@ -114,7 +115,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Wieża BTS (Telekomunikacja)',
     shortName: 'BTS',
     category: 'telecommunications',
-    coordinates: [50.5845, 22.0501],
+    coordinates: C.bts,
     criticality: 3,
     status: 'operational',
     owner: 'Orange Polska / Play',
@@ -132,7 +133,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Stacja PKP Stalowa Wola',
     shortName: 'PKP',
     category: 'transport',
-    coordinates: [50.5762, 22.0612],
+    coordinates: C.pkp,
     criticality: 3,
     status: 'operational',
     owner: 'PKP S.A.',
@@ -150,7 +151,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Magazyn Paliw',
     shortName: 'PAL',
     category: 'fuel',
-    coordinates: [50.5912, 22.0678],
+    coordinates: C.paliwo,
     criticality: 4,
     status: 'operational',
     owner: 'PERN S.A.',
@@ -168,7 +169,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Komenda Powiatowa Policji',
     shortName: 'KPP',
     category: 'emergency',
-    coordinates: [50.5779, 22.0298],
+    coordinates: C.policja,
     criticality: 3,
     status: 'operational',
     owner: 'KGP / MSWiA',
@@ -186,7 +187,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Komenda Miejska PSP',
     shortName: 'PSP',
     category: 'emergency',
-    coordinates: [50.5748, 22.0385],
+    coordinates: C.psp,
     criticality: 3,
     status: 'operational',
     owner: 'KG PSP / MSWiA',
@@ -204,7 +205,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'OSP Stalowa Wola',
     shortName: 'OSP',
     category: 'emergency',
-    coordinates: [50.5712, 22.0451],
+    coordinates: C.osp,
     criticality: 2,
     status: 'operational',
     owner: 'ZOSP RP',
@@ -222,7 +223,7 @@ export const IK_OBJECTS: IKObject[] = [
     name: 'Urząd Miasta Stalowej Woli',
     shortName: 'UM',
     category: 'government',
-    coordinates: [50.5790, 22.0334],
+    coordinates: C.um,
     criticality: 2,
     status: 'operational',
     owner: 'Gmina Stalowa Wola',
@@ -239,4 +240,4 @@ export const IK_OBJECTS: IKObject[] = [
 
 export const IK_OBJECTS_MAP = new Map(IK_OBJECTS.map(o => [o.id, o]))
 
-export const STALOWA_WOLA_CENTER: [number, number] = [50.5790, 22.0401]
+export const STALOWA_WOLA_CENTER: [number, number] = [50.568255, 22.048054]

@@ -6,16 +6,14 @@ import {
   getSentinelSyncStatus,
   getSatelliteCacheFromSentinel,
 } from '@/adapters/sentinelAdapter'
+import { getCachedIkCoordinateCount, getOsmSyncStatus } from '@/adapters/osmAdapter'
+import { IK_GEOCODE_SPECS } from '@/data/ikGeocoding'
 import { envConfig } from '@/config/env'
 import type { SystemHealth, SyncStatus } from '@/types'
 
 type PublicSyncKey = keyof SystemHealth['publicDataSyncStatus']
 
-const OSM_SYNC: SyncStatus = {
-  status: 'synced',
-  lastSync: new Date(),
-  dataAge: 0,
-}
+const OSM_TOTAL = IK_GEOCODE_SPECS.length
 
 /**
  * Pobiera publiczne źródła (LIVE) i zwraca statusy synchronizacji + cache satelitarny.
@@ -40,7 +38,7 @@ export async function refreshPublicDataLayer(): Promise<{
     weather: getWeatherSyncStatus(),
     firms: getFIRMSSyncStatus(),
     opensky: getOpenSkySyncStatus(),
-    osm: OSM_SYNC,
+    osm: getOsmSyncStatus(getCachedIkCoordinateCount(), OSM_TOTAL),
     sentinel: getSentinelSyncStatus(),
   }
 
@@ -56,7 +54,7 @@ export function getIdlePublicSyncStatus(): SystemHealth['publicDataSyncStatus'] 
     weather: getWeatherSyncStatus(),
     firms: getFIRMSSyncStatus(),
     opensky: getOpenSkySyncStatus(),
-    osm: OSM_SYNC,
+    osm: getOsmSyncStatus(getCachedIkCoordinateCount(), OSM_TOTAL),
     sentinel: getSentinelSyncStatus(),
   }
 }

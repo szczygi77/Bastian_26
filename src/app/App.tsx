@@ -29,10 +29,10 @@ const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
 }
 
 export default function App() {
-  const { operator, activeView, setOnline, refreshSystemHealth } = useAppStore()
+  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations } = useAppStore()
 
   useEffect(() => {
-    const handleOnline = () => { setOnline(true); refreshSystemHealth() }
+    const handleOnline = () => { setOnline(true); refreshSystemHealth(); loadIkLocations() }
     const handleOffline = () => { setOnline(false); refreshSystemHealth() }
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
@@ -40,7 +40,11 @@ export default function App() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [setOnline, refreshSystemHealth])
+  }, [setOnline, refreshSystemHealth, loadIkLocations])
+
+  useEffect(() => {
+    if (operator) loadIkLocations()
+  }, [operator, loadIkLocations])
 
   if (!operator) return <LoginPage />
 

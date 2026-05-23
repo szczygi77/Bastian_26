@@ -13,11 +13,12 @@ import type {
   SystemHealth,
   SystemMode,
 } from '@/types'
-import { IK_OBJECTS } from '@/data/stalowa-wola'
+import { IK_OBJECTS, STALOWA_WOLA_CENTER } from '@/data/stalowa-wola'
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
 import { refreshPublicDataLayer } from '@/services/dataSyncService'
 import { getSystemHealth } from '@/services/systemHealthService'
+import { resolveIkLocations, syncDroneCoordinates } from '@/services/ikLocationService'
 
 interface AppState {
   // Auth
@@ -34,6 +35,10 @@ interface AppState {
 
   // IK Objects
   ikObjects: IKObject[]
+  ikLocationsLoading: boolean
+  ikLocationsResolved: boolean
+  mapCenter: [number, number]
+  loadIkLocations: (force?: boolean) => Promise<void>
   updateObjectStatus: (id: string, status: IKObject['status']) => void
   resetObjectStatuses: () => void
 
@@ -99,11 +104,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   setOnline: (online) => set({ online }),
 
   ikObjects: IK_OBJECTS,
+  ikLocationsLoading: false,
+  ikLocationsResolved: false,
+  mapCenter: STALOWA_WOLA_CENTER,
+  loadIkLocations: async (force = false) => {
+    const state = get()
+    if (state.ikLocationsLoading) return
+    if (state.ikLocationsResolved && !force) return
+
+    set({ ikLocationsLoading: true })
+
+    try {
+      const result = await resolveIkLocations({ force })
+      const drones = syncDroneCoordinates(state.drones, result.objects)
+
+      set({
+        ikObjects: result.objects,
+        drones,
+        mapCenter: result.mapCenter,
+        ikLocationsResolved: true,
+        ikLocationsLoading: false,
+      })
+    } catch {
+      set({ ikLocationsResolved: true, ikLocationsLoading: false })
+    }
+  },
   updateObjectStatus: (id, status) =>
     set(state => ({
       ikObjects: state.ikObjects.map(o => (o.id === id ? { ...o, status } : o)),
     })),
-  resetObjectStatuses: () => set({ ikObjects: IK_OBJECTS }),
+  resetObjectStatuses: () =>
+    set(state => ({
+      ikObjects: IK_OBJECTS.map(base => {
+        const current = state.ikObjects.find(o => o.id === base.id)
+        return current ? { ...base, coordinates: current.coordinates } : base
+      }),
+    })),
 
   alerts: [],
   addAlerts: (alerts) =>

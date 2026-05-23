@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import L from 'leaflet'
 import { useAppStore } from '@/store/useAppStore'
-import { STALOWA_WOLA_CENTER } from '@/data/stalowa-wola'
 import { statusColor, criticalityLabel } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Switch } from '@/components/ui/Switch'
@@ -46,7 +45,16 @@ export function TacticalMap() {
   const fireMarkersRef = useRef<L.CircleMarker[]>([])
   const baseLayersRef = useRef<Record<string, L.TileLayer>>({})
 
-  const { ikObjects, cascadeResult, drones } = useAppStore()
+  const {
+    ikObjects,
+    cascadeResult,
+    drones,
+    mapCenter,
+    ikLocationsResolved,
+    ikLocationsLoading,
+    loadIkLocations,
+  } = useAppStore()
+  const boundsFittedRef = useRef(false)
 
   const [layers, setLayers] = useState<LayerControls>({
     ikObjects: true,
@@ -66,7 +74,7 @@ export function TacticalMap() {
     if (!mapRef.current || mapInstance.current) return
 
     const map = L.map(mapRef.current, {
-      center: STALOWA_WOLA_CENTER,
+      center: mapCenter,
       zoom: 13,
       zoomControl: true,
       attributionControl: false,
@@ -161,6 +169,16 @@ export function TacticalMap() {
     }
   }, [ikObjects, cascadeResult, layers])
 
+  // Dopasuj widok mapy po geokodowaniu obiektów IK z OSM
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map || !ikLocationsResolved || boundsFittedRef.current) return
+
+    const bounds = L.latLngBounds(ikObjects.map(o => o.coordinates))
+    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 })
+    boundsFittedRef.current = true
+  }, [ikObjects, ikLocationsResolved])
+
   // Aviation layer
   const loadFlights = useCallback(async () => {
     if (!layers.aviation) {
@@ -251,9 +269,26 @@ export function TacticalMap() {
             accent="cyan"
           />
         ))}
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={ikLocationsLoading}
+          onClick={() => {
+            boundsFittedRef.current = false
+            loadIkLocations(true)
+          }}
+        >
+          Sync IK (OSM)
+        </Button>
         <Button variant="secondary" size="sm" loading={loading} onClick={loadFlights} className="ml-auto">
           Sync Aviation
         </Button>
+        {ikLocationsLoading && (
+          <span className="text-[10px] font-mono text-[#00E5FF]">Geokodowanie OSM…</span>
+        )}
+        {ikLocationsResolved && !ikLocationsLoading && (
+          <span className="text-[10px] font-mono text-[#66778B]">IK · OSM/Nominatim</span>
+        )}
         {weather && layers.weather && (
           <div className="text-[10px] font-mono text-[#94A3B8] ml-4">
             {weather.temperature.toFixed(1)}°C · w10m {weather.windSpeed} km/h

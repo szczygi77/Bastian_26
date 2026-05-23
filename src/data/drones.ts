@@ -1,4 +1,5 @@
 import type { DroneUnit } from '@/types'
+import { IK_VERIFIED_COORDINATES as C } from '@/data/ikGeocoding'
 
 export const DRONE_FLEET: DroneUnit[] = [
   {
@@ -8,7 +9,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'available',
     battery: 92,
     payload: ['RGB camera', 'thermal camera', 'spotlight'],
-    coordinates: [50.5779, 22.0298],
+    coordinates: C.policja,
     range: 15,
     availability: true,
     base: 'KPP Stalowa Wola',
@@ -23,7 +24,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'charging',
     battery: 34,
     payload: ['RGB camera', 'zoom lens', 'speaker'],
-    coordinates: [50.5779, 22.0298],
+    coordinates: C.policja,
     range: 15,
     availability: false,
     base: 'KPP Stalowa Wola',
@@ -38,7 +39,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'available',
     battery: 87,
     payload: ['thermal camera', 'RGB camera', 'laser rangefinder'],
-    coordinates: [50.5748, 22.0385],
+    coordinates: C.psp,
     range: 8,
     availability: true,
     base: 'KM PSP Stalowa Wola',
@@ -53,7 +54,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'available',
     battery: 100,
     payload: ['thermal camera', 'RGB camera'],
-    coordinates: [50.5748, 22.0385],
+    coordinates: C.psp,
     range: 8,
     availability: true,
     base: 'KM PSP Stalowa Wola',
@@ -68,7 +69,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'available',
     battery: 78,
     payload: ['RGB camera', '4K video'],
-    coordinates: [50.5712, 22.0451],
+    coordinates: C.osp,
     range: 4,
     availability: true,
     base: 'OSP Stalowa Wola',
@@ -83,7 +84,7 @@ export const DRONE_FLEET: DroneUnit[] = [
     status: 'available',
     battery: 95,
     payload: ['thermal camera', 'RGB 6K', 'gas sensor'],
-    coordinates: [50.5801, 22.0356],
+    coordinates: C.czk,
     range: 12,
     availability: true,
     base: 'CZK Stalowa Wola',
