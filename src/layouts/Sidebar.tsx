@@ -7,17 +7,17 @@ import { cn } from '@/utils/cn'
 import { useAppStore } from '@/store/useAppStore'
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-  { id: 'map', label: 'TACTICAL MAP', icon: Map },
-  { id: 'graph', label: 'DEPENDENCY GRAPH', icon: GitBranch },
-  { id: 'scenarios', label: 'SCENARIOS', icon: Play },
-  { id: 'alerts', label: 'ALERT CENTER', icon: Bell },
-  { id: 'ai', label: 'DECISION SUPPORT', icon: Cpu },
-  { id: 'skymarshal', label: 'SKYMARSHAL', icon: Radio },
-  { id: 'audit', label: 'AUDIT LOG', icon: FileText },
-  { id: 'compliance', label: 'COMPLIANCE', icon: Shield },
-  { id: 'system', label: 'SYSTEM STATUS', icon: Activity },
-  { id: 'reports', label: 'REPORTS', icon: FileOutput },
+  { id: 'dashboard',   label: 'DASHBOARD',        icon: LayoutDashboard },
+  { id: 'map',         label: 'TACTICAL MAP',      icon: Map             },
+  { id: 'graph',       label: 'DEP. GRAPH',        icon: GitBranch       },
+  { id: 'scenarios',   label: 'SCENARIOS',         icon: Play            },
+  { id: 'alerts',      label: 'ALERT CENTER',      icon: Bell            },
+  { id: 'ai',          label: 'DECISION SUPPORT',  icon: Cpu             },
+  { id: 'skymarshal',  label: 'SKYMARSHAL',        icon: Radio           },
+  { id: 'audit',       label: 'AUDIT LOG',         icon: FileText        },
+  { id: 'compliance',  label: 'COMPLIANCE',        icon: Shield          },
+  { id: 'system',      label: 'SYSTEM STATUS',     icon: Activity        },
+  { id: 'reports',     label: 'REPORTS',           icon: FileOutput      },
 ]
 
 export function Sidebar() {
@@ -26,26 +26,42 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: sidebarExpanded ? 272 : 72 }}
+      animate={{ width: sidebarExpanded ? 260 : 64 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="flex-shrink-0 flex flex-col glass-strong border-r border-white/[0.06] h-full z-20 overflow-hidden"
+      className="flex-shrink-0 flex flex-col h-full z-20 overflow-hidden"
+      style={{
+        background: 'linear-gradient(180deg, rgba(11,17,23,0.98) 0%, rgba(5,7,10,0.98) 100%)',
+        backdropFilter: 'blur(20px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+      }}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 px-4 border-b border-white/[0.06]">
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-7 h-7 rounded-[8px] bg-[#00E5FF]/10 border border-[#00E5FF]/30 flex items-center justify-center glow-cyan">
-            <span className="text-[10px] font-mono font-bold text-[#00E5FF]">B</span>
+      <div className="flex items-center h-14 px-3.5 border-b border-[rgba(255,255,255,0.06)] flex-shrink-0">
+        <div className="flex items-center gap-3 overflow-hidden">
+          {/* Tactical hexagon logo */}
+          <div className="flex-shrink-0 w-8 h-8 relative flex items-center justify-center">
+            <div
+              className="absolute inset-0 rounded-[6px]"
+              style={{
+                background: 'rgba(255,138,31,0.10)',
+                border: '1px solid rgba(255,138,31,0.35)',
+                boxShadow: '0 0 12px rgba(255,138,31,0.20), inset 0 1px 0 rgba(255,255,255,0.05)',
+              }}
+            />
+            <span className="relative font-mono text-[12px] font-bold text-[#FF8A1F] tracking-tight">B</span>
           </div>
           <AnimatePresence>
             {sidebarExpanded && (
               <motion.div
-                initial={{ opacity: 0, x: -8 }}
+                initial={{ opacity: 0, x: -6 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.18 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="overflow-hidden"
               >
-                <div className="text-[13px] font-mono font-bold text-[#E6EDF3] tracking-wider">BASTION</div>
-                <div className="text-[9px] font-mono text-[#66778B] tracking-[0.15em]">ENTERPRISE v1.0</div>
+                <div className="text-[12px] font-mono font-bold text-[#E6EDF3] tracking-[0.18em]">BASTION</div>
+                <div className="text-[8px] font-mono text-[#3D5060] tracking-[0.20em] mt-px">ENTERPRISE v1.0</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -53,7 +69,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-px">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const isActive = activeView === id
           const hasBadge = id === 'alerts' && activeAlerts > 0
@@ -64,28 +80,59 @@ export function Sidebar() {
               onClick={() => setActiveView(id)}
               title={!sidebarExpanded ? label : undefined}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] transition-all duration-150 group text-left',
+                'w-full flex items-center gap-3 px-2.5 py-2 rounded-[10px]',
+                'transition-all duration-150 group text-left relative',
                 isActive
-                  ? 'bg-[#00E5FF]/10 text-[#00E5FF]'
-                  : 'text-[#66778B] hover:text-[#94A3B8] hover:bg-white/[0.04]'
+                  ? 'text-[#FF8A1F]'
+                  : 'text-[#3D5060] hover:text-[#94A3B8]'
               )}
+              style={isActive ? {
+                background: 'rgba(255,138,31,0.09)',
+                border: '1px solid rgba(255,138,31,0.20)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+              } : {
+                background: 'transparent',
+                border: '1px solid transparent',
+              }}
             >
-              <div className="relative flex-shrink-0">
-                <Icon size={16} className={cn('transition-colors', isActive && 'drop-shadow-[0_0_4px_rgba(0,229,255,0.6)]')} />
+              {/* Active left bar */}
+              {isActive && (
+                <span
+                  className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full"
+                  style={{
+                    background: 'linear-gradient(180deg, #FF8A1F 0%, rgba(255,138,31,0.3) 100%)',
+                    boxShadow: '0 0 6px rgba(255,138,31,0.5)',
+                  }}
+                />
+              )}
+
+              <div className="relative flex-shrink-0 w-4 flex items-center justify-center">
+                <Icon
+                  size={15}
+                  className="transition-all"
+                  style={isActive ? { filter: 'drop-shadow(0 0 4px rgba(255,138,31,0.55))' } : undefined}
+                />
                 {hasBadge && (
-                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-[#EF4444] rounded-full text-[8px] font-mono text-white flex items-center justify-center">
+                  <span
+                    className="absolute -top-1.5 -right-1.5 w-[14px] h-[14px] rounded-full font-mono text-[8px] text-white flex items-center justify-center"
+                    style={{
+                      background: '#EF4444',
+                      boxShadow: '0 0 6px rgba(239,68,68,0.6)',
+                    }}
+                  >
                     {activeAlerts > 9 ? '9+' : activeAlerts}
                   </span>
                 )}
               </div>
+
               <AnimatePresence>
                 {sidebarExpanded && (
                   <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="text-[11px] font-mono font-medium tracking-wider whitespace-nowrap"
+                    transition={{ duration: 0.14 }}
+                    className="text-[10px] font-mono font-medium tracking-[0.10em] whitespace-nowrap"
                   >
                     {label}
                   </motion.span>
@@ -96,13 +143,19 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="p-2 border-t border-white/[0.06]">
+      {/* Collapse btn */}
+      <div
+        className="p-2 border-t border-[rgba(255,255,255,0.05)] flex-shrink-0"
+      >
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="w-full flex items-center justify-center py-2 rounded-[14px] text-[#66778B] hover:text-[#94A3B8] hover:bg-white/[0.04] transition-all"
+          className={cn(
+            'w-full flex items-center justify-center py-2 rounded-[8px]',
+            'text-[#3D5060] hover:text-[#66778B] transition-all duration-150',
+            'hover:bg-[rgba(255,255,255,0.04)]'
+          )}
         >
-          {sidebarExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {sidebarExpanded ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
         </button>
       </div>
     </motion.aside>

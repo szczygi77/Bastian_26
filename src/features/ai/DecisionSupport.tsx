@@ -125,7 +125,7 @@ export function DecisionSupport() {
                 </div>
 
                 {/* Confidence bar */}
-                <ProgressBar value={rec.confidence} label="Confidence" showValue variant="cyan" className="mb-4" />
+                <ProgressBar value={rec.confidence} label="Confidence" showValue accent="cyan" className="mb-4" />
 
                 {/* Reasoning */}
                 <div className="glass rounded-[14px] p-3 mb-4">

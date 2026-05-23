@@ -1,31 +1,30 @@
 import { useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/utils/cn'
-import { Button } from './Button'
 
 interface ModalProps {
   open: boolean
   onClose: () => void
-  title: string
-  children: React.ReactNode
-  className?: string
+  title?: string
+  subtitle?: string
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  children: React.ReactNode
+  footer?: React.ReactNode
+  danger?: boolean
 }
 
 const sizes = {
-  sm: 'max-w-md',
+  sm: 'max-w-sm',
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
 }
 
-export function Modal({ open, onClose, title, children, className, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, subtitle, size = 'md', children, footer, danger }: ModalProps) {
   useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
@@ -33,37 +32,66 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <>
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            transition={{ duration: 0.20, ease: 'easeOut' }}
+            className="fixed inset-0 z-50 bg-[rgba(5,7,10,0.75)] backdrop-blur-sm"
             onClick={onClose}
           />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 8 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            className={cn(
-              'relative w-full glass-strong rounded-[28px] border border-white/12 shadow-2xl overflow-hidden',
-              sizes[size],
-              className
-            )}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
-              <div className="text-[12px] font-mono font-semibold uppercase tracking-[0.12em] text-[#00E5FF]">
-                {title}
-              </div>
-              <Button variant="ghost" size="sm" onClick={onClose} className="!p-1.5">
-                <X size={14} />
-              </Button>
-            </div>
-            <div className="p-6">{children}</div>
-          </motion.div>
-        </div>
+          {/* Dialog */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 4 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className={cn(
+                'w-full rounded-[28px] overflow-hidden',
+                'glass-strong flex flex-col',
+                danger
+                  ? 'border-[rgba(239,68,68,0.30)] shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_20px_rgba(239,68,68,0.12)]'
+                  : 'border-[rgba(255,138,31,0.15)] shadow-[0_0_60px_rgba(0,0,0,0.8),0_0_30px_rgba(255,138,31,0.06)]',
+                sizes[size]
+              )}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              {title && (
+                <div className={cn(
+                  'flex items-start justify-between p-5 border-b',
+                  danger ? 'border-[rgba(239,68,68,0.15)]' : 'border-[rgba(255,255,255,0.06)]'
+                )}>
+                  <div>
+                    {subtitle && <div className="label-xs mb-1.5 text-[#66778B]">{subtitle}</div>}
+                    <h2 className="font-mono text-[13px] font-semibold uppercase tracking-[0.12em] text-[#E6EDF3]">
+                      {title}
+                    </h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="text-[#3D5060] hover:text-[#94A3B8] transition-colors p-1 -m-1 rounded-[6px]"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-5">{children}</div>
+
+              {/* Footer */}
+              {footer && (
+                <div className="border-t border-[rgba(255,255,255,0.06)] px-5 py-3.5 flex items-center justify-end gap-2">
+                  {footer}
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </>
       )}
     </AnimatePresence>
   )

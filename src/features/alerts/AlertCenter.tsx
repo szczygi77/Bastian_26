@@ -74,7 +74,7 @@ export function AlertCenter() {
                 ALERT CENTER
               </span>
               {criticalCount > 0 && (
-                <Badge variant="critical" pulse>{criticalCount} CRITICAL</Badge>
+                <Badge variant="danger" dot pulse>{criticalCount} CRITICAL</Badge>
               )}
             </div>
             <span className="text-[10px] font-mono text-[#66778B]">{alerts.length} total</span>
@@ -85,7 +85,9 @@ export function AlertCenter() {
                 key={s}
                 onClick={() => setFilterSeverity(s)}
                 className={`text-[10px] font-mono uppercase px-2 py-1 rounded-[8px] transition-all ${
-                  filterSeverity === s ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30' : 'text-[#66778B] border border-white/[0.06] hover:border-white/10'
+                  filterSeverity === s
+                    ? 'bg-[rgba(255,138,31,0.10)] text-[#FF8A1F] border border-[rgba(255,138,31,0.30)]'
+                    : 'text-[#66778B] border border-white/[0.06] hover:border-white/10'
                 }`}
               >
                 {s}
@@ -121,7 +123,7 @@ export function AlertCenter() {
                 onClick={() => setSelected(alert)}
                 className={`w-full text-left p-3 rounded-[14px] border transition-all duration-150 ${
                   selected?.id === alert.id
-                    ? 'bg-[#00E5FF]/8 border-[#00E5FF]/30'
+                    ? 'bg-[rgba(255,138,31,0.07)] border-[rgba(255,138,31,0.25)]'
                     : 'border-white/[0.04] hover:border-white/10 hover:bg-white/[0.02]'
                 } ${alert.severity === 'critical' && alert.status === 'active' ? 'animate-pulse-danger border-[#EF4444]/25' : ''}`}
               >

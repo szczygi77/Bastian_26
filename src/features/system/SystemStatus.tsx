@@ -11,12 +11,13 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 function ConnectionRow({ label, status, detail }: { label: string; status: string; detail?: string }) {
   const ok = status === 'connected' || status === 'ready' || status === 'healthy'
   const warn = status === 'degraded' || status === 'active'
+  const dotColor = ok ? 'green' : warn ? 'warning' : 'danger'
   return (
     <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
       <span className="text-[11px] font-mono text-[#94A3B8]">{label}</span>
       <div className="flex items-center gap-3">
         {detail && <span className="text-[10px] font-mono text-[#66778B]">{detail}</span>}
-        <StatusDot status={ok ? 'ok' : warn ? 'warn' : 'error'} size="sm" />
+        <StatusDot color={dotColor as 'green' | 'warning' | 'danger'} size="sm" />
         <span className={`text-[10px] font-mono ${ok ? 'text-[#22C55E]' : warn ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
           {status.toUpperCase()}
         </span>
@@ -101,7 +102,7 @@ export function SystemStatus() {
               </div>
               <div className="text-[10px] font-mono text-[#66778B]">Wiek danych: {systemHealth.satelliteCacheAge}h</div>
               <div className="text-[10px] font-mono text-[#66778B]">Sentinel-1 SAR · Revisit: 6 dni</div>
-              <ProgressBar value={Math.max(0, 100 - systemHealth.satelliteCacheAge * 2)} className="mt-2" />
+              <ProgressBar value={Math.max(0, 100 - systemHealth.satelliteCacheAge * 2)} accent="cyan" className="mt-2" />
             </div>
 
             <div className="border-t border-white/[0.04] pt-3 space-y-2">
@@ -110,7 +111,8 @@ export function SystemStatus() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-mono text-[#66778B] uppercase">{key}</span>
                     <StatusDot
-                      status={sync.status === 'synced' ? 'ok' : sync.status === 'syncing' ? 'active' : 'error'}
+                      color={sync.status === 'synced' ? 'green' : sync.status === 'syncing' ? 'cyan' : 'danger'}
+                      pulse={sync.status === 'syncing'}
                       size="sm"
                     />
                   </div>

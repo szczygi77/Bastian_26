@@ -1,34 +1,51 @@
 import { cn } from '@/utils/cn'
 
-type BadgeVariant = 'cyan' | 'orange' | 'green' | 'danger' | 'warning' | 'muted' | 'critical'
+type BadgeVariant = 'orange' | 'cyan' | 'green' | 'danger' | 'warning' | 'muted'
 
 interface BadgeProps {
   variant?: BadgeVariant
   children: React.ReactNode
   pulse?: boolean
+  dot?: boolean
   className?: string
 }
 
-const variants: Record<BadgeVariant, string> = {
-  cyan: 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/25',
-  orange: 'bg-[#FF8A1F]/10 text-[#FF8A1F] border-[#FF8A1F]/25',
-  green: 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/25',
-  danger: 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/25',
-  warning: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25',
-  critical: 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40 animate-pulse-danger',
-  muted: 'bg-white/5 text-[#66778B] border-white/10',
+const styles: Record<BadgeVariant, string> = {
+  orange:  'bg-[rgba(255,138,31,0.12)] text-[#FF8A1F] border-[rgba(255,138,31,0.28)]',
+  cyan:    'bg-[rgba(0,229,255,0.08)] text-[#00E5FF] border-[rgba(0,229,255,0.22)]',
+  green:   'bg-[rgba(34,197,94,0.10)] text-[#22C55E] border-[rgba(34,197,94,0.25)]',
+  danger:  'bg-[rgba(239,68,68,0.12)] text-[#EF4444] border-[rgba(239,68,68,0.28)]',
+  warning: 'bg-[rgba(245,158,11,0.10)] text-[#F59E0B] border-[rgba(245,158,11,0.25)]',
+  muted:   'bg-[rgba(255,255,255,0.04)] text-[#66778B] border-[rgba(255,255,255,0.08)]',
 }
 
-export function Badge({ variant = 'muted', children, pulse, className }: BadgeProps) {
+const dotColors: Record<BadgeVariant, string> = {
+  orange: 'bg-[#FF8A1F]',
+  cyan: 'bg-[#00E5FF]',
+  green: 'bg-[#22C55E]',
+  danger: 'bg-[#EF4444]',
+  warning: 'bg-[#F59E0B]',
+  muted: 'bg-[#66778B]',
+}
+
+export function Badge({ variant = 'muted', children, pulse, dot, className }: BadgeProps) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider rounded-[8px] border',
-        variants[variant],
-        pulse && 'animate-pulse-danger',
-        className
+    <span className={cn(
+      'inline-flex items-center gap-1.5',
+      'px-2 py-0.5 rounded-[6px] border',
+      'font-mono text-[9px] font-medium uppercase tracking-[0.13em]',
+      'whitespace-nowrap',
+      styles[variant],
+      pulse && 'animate-pulse-orange',
+      className
+    )}>
+      {dot && (
+        <span className={cn(
+          'w-1.5 h-1.5 rounded-full flex-shrink-0',
+          dotColors[variant],
+          pulse && 'animate-pulse-dot'
+        )} />
       )}
-    >
       {children}
     </span>
   )
@@ -36,13 +53,13 @@ export function Badge({ variant = 'muted', children, pulse, className }: BadgePr
 
 export function SeverityBadge({ severity }: { severity: string }) {
   const map: Record<string, BadgeVariant> = {
-    critical: 'critical',
+    critical: 'danger',
     high: 'orange',
     medium: 'warning',
     low: 'green',
     info: 'cyan',
   }
-  return <Badge variant={map[severity] ?? 'muted'}>{severity}</Badge>
+  return <Badge variant={map[severity] ?? 'muted'} dot>{severity}</Badge>
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -50,17 +67,22 @@ export function StatusBadge({ status }: { status: string }) {
     operational: 'green',
     degraded: 'warning',
     offline: 'danger',
-    under_attack: 'critical',
+    under_attack: 'danger',
     unknown: 'muted',
     active: 'danger',
     acknowledged: 'warning',
     assigned: 'cyan',
     resolved: 'green',
-    escalated: 'critical',
+    escalated: 'orange',
     available: 'green',
     on_mission: 'cyan',
-    charging: 'orange',
-    maintenance: 'warning',
+    charging: 'warning',
+    maintenance: 'muted',
+    connected: 'green',
+    compliant: 'green',
+    partial: 'warning',
+    non_compliant: 'danger',
+    pending_review: 'muted',
   }
-  return <Badge variant={map[status] ?? 'muted'}>{status.replace('_', ' ')}</Badge>
+  return <Badge variant={map[status] ?? 'muted'}>{status.replace(/_/g, ' ')}</Badge>
 }

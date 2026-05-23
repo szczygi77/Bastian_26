@@ -1,36 +1,51 @@
 import { useEffect } from 'react'
-import { AlertTriangle, Activity, Shield, Wifi, Database, Radio, GitBranch } from 'lucide-react'
+import { GitBranch, Activity, AlertTriangle, Cpu, Radio } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Card, StatCard } from '@/components/ui/Card'
 import { Badge, SeverityBadge, StatusBadge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { StatusDot } from '@/components/ui/StatusDot'
+import { StatusDot, OperationalStatus } from '@/components/ui/StatusDot'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
 
-function ThreatLevelGauge({ level }: { level: number }) {
+function ThreatGauge({ level }: { level: number }) {
   const label = level >= 80 ? 'KRYTYCZNY' : level >= 60 ? 'WYSOKI' : level >= 40 ? 'PODWYŻSZONY' : level >= 20 ? 'UMIARKOWANY' : 'NORMALNY'
   const color = level >= 80 ? '#EF4444' : level >= 60 ? '#FF8A1F' : level >= 40 ? '#F59E0B' : '#22C55E'
+  const circumference = 2 * Math.PI * 46
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-28 h-28">
-        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+    <div className="flex flex-col items-center gap-3">
+      <div className="label-xs">THREAT LEVEL</div>
+      <div className="relative w-32 h-32">
+        {/* Outer ring */}
+        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90 absolute inset-0">
+          <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+          <circle cx="60" cy="60" r="46" fill="none" strokeWidth="1.5" stroke="rgba(255,255,255,0.06)"
+            strokeDasharray="4 8" />
           <circle
-            cx="60" cy="60" r="50" fill="none"
-            stroke={color}
-            strokeWidth="8"
-            strokeDasharray={`${(level / 100) * 314} 314`}
-            strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
+            cx="60" cy="60" r="46" fill="none"
+            stroke={color} strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={`${(level / 100) * circumference} ${circumference}`}
+            style={{ filter: `drop-shadow(0 0 8px ${color}90)`, transition: 'stroke-dasharray 0.6s ease' }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-mono font-bold" style={{ color }}>{level}</span>
-          <span className="text-[9px] font-mono text-[#66778B]">/100</span>
+        {/* Inner glass */}
+        <div
+          className="absolute inset-[14px] rounded-full flex flex-col items-center justify-center"
+          style={{
+            background: 'rgba(5,7,10,0.8)',
+            border: `1px solid ${color}25`,
+            boxShadow: `inset 0 0 20px ${color}08`,
+          }}
+        >
+          <span className="font-mono text-[24px] font-bold leading-none" style={{ color, textShadow: `0 0 12px ${color}70` }}>
+            {level}
+          </span>
+          <span className="font-mono text-[8px] text-[#3D5060] mt-0.5">/100</span>
         </div>
       </div>
-      <div className="text-[10px] font-mono font-semibold tracking-wider" style={{ color }}>{label}</div>
+      <div className="font-mono text-[10px] font-semibold tracking-[0.16em]" style={{ color }}>
+        {label}
+      </div>
     </div>
   )
 }
@@ -40,8 +55,8 @@ export function Dashboard() {
 
   useEffect(() => {
     refreshSystemHealth()
-    const interval = setInterval(refreshSystemHealth, 30000)
-    return () => clearInterval(interval)
+    const t = setInterval(refreshSystemHealth, 30000)
+    return () => clearInterval(t)
   }, [refreshSystemHealth])
 
   const activeAlerts = alerts.filter(a => a.status === 'active')
@@ -51,152 +66,189 @@ export function Dashboard() {
   const availableDrones = drones.filter(d => d.availability)
 
   const threatLevel = Math.min(100, criticalAlerts.length * 25 + degradedObjects.length * 10)
-  const infraHealth = Math.round(((ikObjects.length - degradedObjects.length) / ikObjects.length) * 100)
+  const infraHealth = Math.round(((ikObjects.length - degradedObjects.length) / Math.max(1, ikObjects.length)) * 100)
 
-  const criticalObjects = ikObjects
-    .filter(o => o.criticality >= 4)
-    .sort((a, b) => b.criticality - a.criticality)
+  const criticalObjects = ikObjects.filter(o => o.criticality >= 4).sort((a, b) => b.criticality - a.criticality)
+
+  const sysChecks = [
+    { label: 'Hot Standby',    ok: systemHealth.hotStandbyActive },
+    { label: 'Watchdog',       ok: systemHealth.watchdogActive },
+    { label: 'UPS',            ok: systemHealth.upsActive },
+    { label: 'Encryption',     ok: systemHealth.encryptionActive },
+    { label: 'Local DB',       ok: systemHealth.localDbStatus === 'healthy' },
+    { label: 'RCB Link',       ok: systemHealth.rcbLinkStatus === 'connected' },
+    { label: 'TETRA',          ok: systemHealth.tetraLinkStatus === 'connected' },
+    { label: 'GSM Fallback',   ok: systemHealth.gsmFallbackStatus !== 'offline' },
+  ]
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[13px] font-mono font-bold uppercase tracking-[0.15em] text-[#E6EDF3]">
-            COMMAND DASHBOARD
-          </h1>
-          <p className="text-[11px] font-mono text-[#66778B] mt-0.5">
-            Stalowa Wola — Infrastruktura Krytyczna · {ikObjects.length} obiektów IK
-          </p>
+    <div className="h-full overflow-auto p-5 space-y-4 tactical-grid">
+      {/* Page header */}
+      <div className="flex items-center justify-between pb-1">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-1 h-6 rounded-full"
+            style={{
+              background: 'linear-gradient(180deg, #FF8A1F 0%, rgba(255,138,31,0.2) 100%)',
+              boxShadow: '0 0 8px rgba(255,138,31,0.5)',
+            }}
+          />
+          <div>
+            <h1 className="heading-tactical text-[13px]">COMMAND DASHBOARD</h1>
+            <p className="font-mono text-[9px] text-[#3D5060] mt-0.5 tracking-wider">
+              STALOWA WOLA · IK AWARENESS · {ikObjects.length} OBIEKTÓW · {new Date().toLocaleString('pl-PL', { hour12: false })}
+            </p>
+          </div>
         </div>
-        <Badge variant={systemHealth.online ? 'green' : 'orange'}>
-          {systemHealth.online ? 'ONLINE' : 'OFFLINE — TRYB DEGRADED'}
+        <Badge variant={systemHealth.online ? 'green' : 'orange'} dot pulse={!systemHealth.online}>
+          {systemHealth.online ? 'SYSTEM ONLINE' : 'TRYB DEGRADED'}
         </Badge>
       </div>
 
-      {/* Top row: threat + stats */}
-      <div className="grid grid-cols-5 gap-4">
-        <Card label="THREAT LEVEL" className="col-span-1 flex flex-col items-center py-4">
-          <ThreatLevelGauge level={threatLevel} />
-        </Card>
+      {/* Top stats row */}
+      <div className="grid grid-cols-5 gap-3">
+        {/* Threat gauge */}
+        <div
+          className="glass-panel rounded-[14px] p-4 flex flex-col items-center justify-center col-span-1"
+          style={threatLevel >= 60 ? { borderColor: 'rgba(239,68,68,0.20)', boxShadow: '0 0 20px rgba(239,68,68,0.08)' } : undefined}
+        >
+          <ThreatGauge level={threatLevel} />
+        </div>
 
-        <StatCard
-          label="ACTIVE ALERTS"
-          value={activeAlerts.length}
+        <StatCard label="ACTIVE ALERTS" value={activeAlerts.length}
           sub={`${criticalAlerts.length} krytycznych`}
           accent={criticalAlerts.length > 0 ? 'danger' : undefined}
         />
-        <StatCard
-          label="INFRA HEALTH"
-          value={infraHealth}
-          unit="%"
-          sub={`${degradedObjects.length} obiektów degraded/offline`}
+        <StatCard label="INFRA HEALTH" value={infraHealth} unit="%"
+          sub={`${degradedObjects.length} degraded/offline`}
           accent={infraHealth < 80 ? 'orange' : 'green'}
         />
-        <StatCard
-          label="DRONE READINESS"
-          value={`${availableDrones.length}/${drones.length}`}
+        <StatCard label="DRONE READINESS" value={`${availableDrones.length}/${drones.length}`}
           sub={`${activeMissions.length} aktywnych misji`}
           accent="cyan"
         />
-        <StatCard
-          label="SYNC QUEUE"
-          value={systemHealth.syncQueueLength}
-          sub={systemHealth.lastSync ? `Ostatnia sync: ${formatTimeAgo(systemHealth.lastSync)}` : 'Brak synchronizacji'}
+        <StatCard label="SYNC QUEUE" value={systemHealth.syncQueueLength}
+          sub={systemHealth.lastSync ? `Sync: ${formatTimeAgo(systemHealth.lastSync)}` : 'Oczekuje'}
           accent={systemHealth.syncQueueLength > 0 ? 'orange' : undefined}
         />
       </div>
 
-      {/* Public data sync status */}
-      <Card label="PUBLIC DATA SYNC STATUS">
-        <div className="grid grid-cols-4 gap-4">
+      {/* Data sync status */}
+      <div className="glass-panel rounded-[14px] p-4">
+        <div className="label-xs mb-3 flex items-center gap-2">
+          <Activity size={10} className="text-[#FF8A1F]" />
+          PUBLIC DATA SYNC
+        </div>
+        <div className="grid grid-cols-4 gap-5">
           {Object.entries(systemHealth.publicDataSyncStatus).map(([key, sync]) => (
-            <div key={key} className="space-y-2">
+            <div key={key} className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#66778B]">{key.toUpperCase()}</span>
+                <span className="font-mono text-[9px] uppercase tracking-wider text-[#66778B]">{key}</span>
                 <StatusDot
-                  status={sync.status === 'synced' ? 'ok' : sync.status === 'syncing' ? 'active' : sync.status === 'error' ? 'error' : 'offline'}
-                  size="sm"
+                  color={sync.status === 'synced' ? 'green' : sync.status === 'syncing' ? 'cyan' : sync.status === 'error' ? 'danger' : 'muted'}
+                  pulse={sync.status === 'syncing'}
+                  size="xs"
                 />
               </div>
-              <div className="text-[11px] font-mono text-[#94A3B8]">
-                {sync.lastSync ? formatTimeAgo(sync.lastSync) : 'Brak danych'}
+              <div className="font-mono text-[10px] text-[#94A3B8]">
+                {sync.lastSync ? formatTimeAgo(sync.lastSync) : '—'}
               </div>
-              <ProgressBar value={Math.max(0, 100 - sync.dataAge)} variant="cyan" />
+              <ProgressBar value={Math.max(0, 100 - sync.dataAge)} accent="cyan" thin />
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
-      {/* Bottom row */}
-      <div className="grid grid-cols-3 gap-4">
-        {/* Active alerts feed */}
-        <Card label={`ACTIVE ALERTS (${activeAlerts.length})`} className="col-span-1">
-          <div className="space-y-2 max-h-64 overflow-auto">
-            {activeAlerts.length === 0 ? (
-              <div className="text-[11px] font-mono text-[#66778B] py-4 text-center">Brak aktywnych alertów</div>
-            ) : (
-              activeAlerts.slice(0, 8).map(alert => (
-                <div key={alert.id} className="flex items-start gap-2 py-2 border-b border-white/[0.04] last:border-0">
-                  <SeverityBadge severity={alert.severity} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[11px] font-mono text-[#E6EDF3] truncate">{alert.title}</div>
-                    <div className="text-[10px] font-mono text-[#66778B]">{formatTimeAgo(alert.timestamp)}</div>
-                  </div>
-                </div>
-              ))
-            )}
+      {/* Bottom 3-col grid */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Active alerts */}
+        <div className="glass-panel rounded-[14px] p-4">
+          <div className="label-xs mb-3 flex items-center gap-2">
+            <AlertTriangle size={10} className="text-[#EF4444]" />
+            ACTIVE ALERTS ({activeAlerts.length})
           </div>
-        </Card>
+          <div className="space-y-1 max-h-60 overflow-auto">
+            {activeAlerts.length === 0 ? (
+              <div className="font-mono text-[11px] text-[#3D5060] py-6 text-center">
+                Brak aktywnych alertów
+              </div>
+            ) : activeAlerts.slice(0, 10).map(alert => (
+              <div
+                key={alert.id}
+                className="flex items-start gap-2 px-2.5 py-2 rounded-[8px] transition-colors hover:bg-[rgba(255,255,255,0.03)]"
+                style={{ borderLeft: `2px solid ${alert.severity === 'critical' ? 'rgba(239,68,68,0.5)' : alert.severity === 'high' ? 'rgba(255,138,31,0.5)' : 'rgba(245,158,11,0.4)'}` }}
+              >
+                <SeverityBadge severity={alert.severity} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-[11px] text-[#E6EDF3] truncate">{alert.title}</div>
+                  <div className="font-mono text-[9px] text-[#3D5060] mt-0.5">{formatTimeAgo(alert.timestamp)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Critical objects */}
-        <Card label="CRITICAL DEPENDENCIES AT RISK" className="col-span-1">
-          <div className="space-y-2 max-h-64 overflow-auto">
+        <div className="glass-panel rounded-[14px] p-4">
+          <div className="label-xs mb-3 flex items-center gap-2">
+            <GitBranch size={10} className="text-[#FF8A1F]" />
+            OBIEKTY KRYTYCZNE
+          </div>
+          <div className="space-y-0.5 max-h-60 overflow-auto">
             {criticalObjects.map(obj => (
-              <div key={obj.id} className="flex items-center gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor(obj.status), boxShadow: `0 0 4px ${statusColor(obj.status)}60` }} />
+              <div
+                key={obj.id}
+                className="flex items-center gap-2.5 px-2 py-2 rounded-[7px] transition-colors hover:bg-[rgba(255,255,255,0.025)]"
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{
+                    background: statusColor(obj.status),
+                    boxShadow: `0 0 5px ${statusColor(obj.status)}70`,
+                  }}
+                />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-mono text-[#E6EDF3] truncate">{obj.shortName}</div>
-                  <div className="text-[10px] font-mono text-[#66778B]">{criticalityLabel(obj.criticality)}</div>
+                  <div className="font-mono text-[11px] text-[#E6EDF3] truncate">{obj.shortName}</div>
+                  <div className="font-mono text-[9px] text-[#3D5060]">{criticalityLabel(obj.criticality)}</div>
                 </div>
                 <StatusBadge status={obj.status} />
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        {/* System status grid */}
-        <Card label="SYSTEM STATUS" className="col-span-1">
-          <div className="space-y-2.5">
-            {[
-              { label: 'Hot Standby', ok: systemHealth.hotStandbyActive },
-              { label: 'Watchdog', ok: systemHealth.watchdogActive },
-              { label: 'UPS', ok: systemHealth.upsActive },
-              { label: 'Encryption', ok: systemHealth.encryptionActive },
-              { label: 'Local DB', ok: systemHealth.localDbStatus === 'healthy' },
-              { label: 'RCB Link', ok: systemHealth.rcbLinkStatus === 'connected' },
-              { label: 'TETRA', ok: systemHealth.tetraLinkStatus === 'connected' },
-              { label: 'GSM Fallback', ok: systemHealth.gsmFallbackStatus !== 'offline' },
-            ].map(({ label, ok }) => (
+        {/* System status */}
+        <div className="glass-panel rounded-[14px] p-4">
+          <div className="label-xs mb-3 flex items-center gap-2">
+            <Cpu size={10} className="text-[#00E5FF]" />
+            SYSTEM STATUS
+          </div>
+          <div className="space-y-2">
+            {sysChecks.map(({ label, ok }) => (
               <div key={label} className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[#94A3B8]">{label}</span>
-                <StatusDot status={ok ? 'ok' : 'error'} size="sm" />
+                <span className="font-mono text-[10px] text-[#66778B]">{label}</span>
+                <StatusDot color={ok ? 'green' : 'danger'} pulse={!ok} size="xs" />
               </div>
             ))}
           </div>
 
           {cascadeResult && (
-            <div className="mt-4 pt-3 border-t border-white/[0.06]">
-              <div className="flex items-center gap-2 mb-2">
-                <GitBranch size={11} className="text-[#FF8A1F]" />
-                <span className="text-[10px] font-mono text-[#FF8A1F] uppercase tracking-wider">CASCADE ACTIVE</span>
+            <div
+              className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)] space-y-1"
+            >
+              <div className="flex items-center gap-1.5">
+                <Radio size={10} className="text-[#FF8A1F]" />
+                <span className="font-mono text-[9px] text-[#FF8A1F] uppercase tracking-wider">
+                  CASCADE PROPAGATION
+                </span>
               </div>
-              <div className="text-[11px] font-mono text-[#94A3B8]">
-                {cascadeResult.affectedCount} obiektów · Impact {cascadeResult.totalImpactScore.toFixed(0)}/100
+              <div className="font-mono text-[10px] text-[#94A3B8]">
+                {cascadeResult.affectedCount} obiektów · Impact score: {cascadeResult.totalImpactScore.toFixed(0)}/100
               </div>
+              <ProgressBar value={cascadeResult.totalImpactScore} accent="danger" thin />
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   )
