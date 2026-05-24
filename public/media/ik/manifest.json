@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-05-24T05:49:53.601Z",
+  "items": {
+    "hsw": {
+      "file": "hsw.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Huta Stalowa Wola"
+    },
+    "elc": {
+      "file": "elc.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Elektrociepłownia Stalowa Wola S.A."
+    },
+    "szpital": {
+      "file": "szpital.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Powiatowy Szpital Specjalistyczny"
+    },
+    "wod": {
+      "file": "wod.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Miejski Zakład Komunalny. Sp. z o.o. Zakład wodociągów i kanalizacji"
+    },
+    "most": {
+      "file": "most.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Most na Sanie w Stalowej Woli DW855"
+    },
+    "czk": {
+      "file": "czk.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Starostwo Powiatowe w Stalowej Woli"
+    },
+    "bts": {
+      "file": "bts.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · OPENGSM Serwis i Naprawa Telefonów, Sprzedaż, Akcesoria, Telefony - Stalowa Wola"
+    },
+    "pkp": {
+      "file": "pkp.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Stalowa Wola Rozwadów"
+    },
+    "paliwo": {
+      "file": "paliwo.jpg",
+      "source": "google_satellite",
+      "attribution": "Google Maps (satelita)"
+    },
+    "policja": {
+      "file": "policja.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · District Police"
+    },
+    "psp": {
+      "file": "psp.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · District Headquarters of the State Fire Service"
+    },
+    "osp": {
+      "file": "osp.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Osp W Stalowej Woli"
+    },
+    "um": {
+      "file": "um.jpg",
+      "source": "google_places",
+      "attribution": "Google Maps · Urząd Miasta"
+    }
+  }
+}

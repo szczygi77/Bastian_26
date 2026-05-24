@@ -47,7 +47,15 @@ Na Linuxie, jeśli Electron nie startuje w dev, doinstaluj zależności GTK (np.
 
 W trybie **LIVE** aplikacja pobiera m.in. Open-Meteo, OpenSky, NASA FIRMS (opcjonalny klucz) oraz metadane Sentinel-1 z Copernicus Data Space (wymaga `VITE_CDSE_CLIENT_ID` i `VITE_CDSE_CLIENT_SECRET`).
 
-**Zdjęcia obiektów IK** (mapa, tooltips, CCTV): z Google Maps po ustawieniu `VITE_GOOGLE_MAPS_API_KEY` (Places API + Street View + satelita). Bez klucza — fallback Wikimedia / Wikipedia / OSM.
+**Zdjęcia obiektów IK** (mapa, tooltips, panel szczegółów):
+
+1. Ustaw `VITE_GOOGLE_MAPS_API_KEY` w `.env` (Places API + Street View + Static Maps).
+2. Pobierz zdjęcia dla wszystkich 13 punktów na mapie:
+   ```bash
+   npm run media:fetch-google
+   ```
+   Pliki trafiają do `public/media/ik/` (`{id}.jpg` + `manifest.json`) i są używane offline w aplikacji.
+3. Bez klucza / bez pobranych plików — runtime próbuje Google API, potem fallback Wikimedia / Wikipedia / OSM.
 
 ---
 

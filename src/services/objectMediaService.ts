@@ -8,6 +8,7 @@ import {
 } from '@/services/googleMediaService'
 import { getCameraPresets } from '@/data/ikCameraPresets'
 import { isLikelyLogoUrl, probeImageUrl } from '@/services/imageProbe'
+import { resolveLocalIkHero } from '@/services/ikLocalMediaService'
 
 export type ObjectMediaSource =
   | 'google_places'
@@ -175,6 +176,16 @@ interface ResolvedHero {
 
 async function resolveHeroImage(obj: IKObject): Promise<ResolvedHero> {
   const [lat, lng] = obj.coordinates
+
+  const local = await resolveLocalIkHero(obj.id)
+  if (local) {
+    return {
+      url: local.url,
+      source: local.source,
+      attribution: local.attribution,
+      available: true,
+    }
+  }
 
   if (hasGoogleMapsApiKey()) {
     const google = await resolveGoogleHeroImage(obj.id, obj.name, lat, lng)
