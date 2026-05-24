@@ -83,7 +83,8 @@ export function Card({ children, className, label, accent, onClick, interactive,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
             color: '#66778B',
-            marginBottom: 16,
+            marginBottom: noPad ? 12 : 16,
+            ...(noPad ? { padding: '14px 16px 0' } : {}),
           }}
         >
           {label}

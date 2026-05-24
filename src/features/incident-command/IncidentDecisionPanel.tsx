@@ -1,4 +1,5 @@
-import { Check, X, ArrowUpRight, ShieldAlert } from 'lucide-react'
+import { useState } from 'react'
+import { Check, X, ArrowUpRight, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -21,6 +22,8 @@ export function IncidentDecisionPanel({
   onDispatch: () => void
 }) {
   const rec = recommendations[0]
+  const [showAllActions, setShowAllActions] = useState(false)
+  const visibleActions = rec && !showAllActions ? rec.actions.slice(0, 2) : rec?.actions ?? []
 
   return (
     <div className="icm-decision">
@@ -33,16 +36,20 @@ export function IncidentDecisionPanel({
             <p className="icm-decision__summary">{rec.reasoning}</p>
             <div className="icm-decision__meta">
               <Badge variant="cyan">Confidence {rec.confidence}%</Badge>
-              <Badge variant="muted">Human approval required</Badge>
+              {rec.requiresApproval && <Badge variant="orange">Human approval required</Badge>}
             </div>
+            {rec.whyThisAction && (
+              <p className="icm-decision__why"><strong>Why:</strong> {rec.whyThisAction}</p>
+            )}
+            {rec.ifIgnored && (
+              <p className="icm-decision__ignore"><strong>If ignored:</strong> {rec.ifIgnored}</p>
+            )}
             <div className="icm-decision__actions-list">
-              {rec.actions.map(action => (
+              {visibleActions.map(action => (
                 <div key={action.id} className="icm-decision__action">
                   <div>
                     <strong>{action.description}</strong>
                     <p>{action.responsible} · {action.timeframe}</p>
-                    <span className="icm-decision__why">Why: {rec.reasoning}</span>
-                    <span className="icm-decision__ignore">If ignored: eskalacja kaskady i opóźnienie reakcji.</span>
                   </div>
                   <div className="icm-decision__action-btns">
                     <Button size="sm" variant="primary" onClick={() => onApprove(rec.id, action.id)}>
@@ -55,6 +62,16 @@ export function IncidentDecisionPanel({
                 </div>
               ))}
             </div>
+            {rec.actions.length > 2 && (
+              <button
+                type="button"
+                className="icm-decision__toggle"
+                onClick={() => setShowAllActions(v => !v)}
+              >
+                {showAllActions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {showAllActions ? 'Mniej akcji' : `Pokaż wszystkie (${rec.actions.length})`}
+              </button>
+            )}
           </div>
         )}
       </Card>

@@ -2731,6 +2731,12 @@ html.electron-macos {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.icm-page__header > div:first-child {
+  min-width: 0;
 }
 
 .icm-page__kicker {
@@ -2762,29 +2768,49 @@ html.electron-macos {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 340px);
   gap: 12px;
+  overflow: hidden;
+}
+
+.icm-page__grid > * {
+  min-width: 0;
 }
 
 .icm-page__center {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 0.9fr 1.1fr;
+  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 12px;
+  overflow: hidden;
+}
+
+.icm-page__center-top,
+.icm-page__center-bottom {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .icm-page__left,
 .icm-page__right {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .icm-page__bottom {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 12px;
-  min-height: 120px;
+  min-height: 0;
+  max-height: 140px;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .icm-page--empty {
@@ -2806,6 +2832,64 @@ html.electron-macos {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.icm-decision .glass-panel {
+  min-width: 0;
+}
+
+.icm-decision__actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.icm-decision__action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.icm-decision__action > div:first-child {
+  min-width: 0;
+}
+
+.icm-decision__action strong,
+.icm-decision__action p {
+  display: block;
+  word-break: break-word;
+}
+
+.icm-decision__action-btns {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.icm-decision__footer {
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.icm-decision__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  border: none;
+  background: transparent;
+  color: #00E5FF;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
 }
 
 .icm-summary__head,
@@ -2927,14 +3011,36 @@ html.electron-macos {
   position: relative;
 }
 
-.icm-map__canvas > div,
+.icm-map__canvas .tactical-map--incident,
+.icm-map__canvas > div {
+  height: 100%;
+  min-height: 0;
+}
+
+.tactical-map--incident {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tactical-map--incident .tactical-map__viewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
 .icm-graph__canvas > div {
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .graph-page--incident {
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .graph-page__svg--incident {
@@ -3057,18 +3163,10 @@ html.electron-macos {
   margin: 10px 0;
 }
 
-.icm-decision__action {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-
-.icm-decision__action-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.icm-decision__why,
+.icm-decision__ignore {
+  display: block;
+  margin-top: 6px;
 }
 
 .icm-decision__asset-head,
@@ -3146,9 +3244,13 @@ html.electron-macos {
 
 .icm-page__header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0;
+  max-width: min(100%, 640px);
 }
 
 .icm-report-actions {
@@ -3161,10 +3263,15 @@ html.electron-macos {
 @media (max-width: 1400px) {
   .icm-page__grid {
     grid-template-columns: 1fr;
-    overflow: auto;
+    grid-template-rows: auto minmax(320px, 1fr) auto;
+    overflow-y: auto;
+  }
+
+  .icm-page__center {
+    grid-template-rows: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
   }
 
   .icm-page__bottom {
-    grid-template-columns: 1fr;
+    max-height: none;
   }
 }

@@ -376,61 +376,59 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
   }, [fires, layers.fires])
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Controls */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-4 py-3 glass border-b border-white/[0.06]">
-        <span className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mr-2">LAYERS</span>
-        {(Object.keys(layers) as (keyof LayerControls)[]).map(key => (
-          <Switch
-            key={key}
-            checked={layers[key]}
-            onChange={val => setLayers(l => ({ ...l, [key]: val }))}
-            label={key.replace(/([A-Z])/g, ' $1').toUpperCase()}
-            accent="cyan"
-          />
-        ))}
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={ikLocationsLoading}
-          onClick={() => {
-            boundsFittedRef.current = false
-            loadIkLocations(true)
-          }}
-        >
-          Sync IK (OSM)
-        </Button>
-        <Button variant="secondary" size="sm" loading={loading} onClick={loadFlights} className="ml-auto">
-          Sync Aviation
-        </Button>
-        {ikLocationsLoading && (
-          <span className="text-[10px] font-mono text-[#00E5FF]">Geokodowanie OSM…</span>
-        )}
-        {ikLocationsResolved && !ikLocationsLoading && (
-          <span className="text-[10px] font-mono text-[#66778B]">IK · OSM/Nominatim</span>
-        )}
-        {weather && layers.weather && (
-          <div className="text-[10px] font-mono text-[#94A3B8] ml-4">
-            {weather.temperature.toFixed(1)}°C · w10m {weather.windSpeed} km/h
-            {weather.windSpeed180m != null && ` · w180m ${weather.windSpeed180m} km/h`}
-            {weather.cloudCover != null && ` · chm. ${weather.cloudCover}%`}
-            {weather.rainMm != null && weather.rainMm > 0 && ` · opad ${weather.rainMm} mm`}
-            {' · '}{weather.condition}
-          </div>
-        )}
-      </div>
+    <div className={incidentMode ? 'tactical-map--incident h-full min-h-0' : 'h-full flex flex-col'}>
+      {!incidentMode && (
+        <div className="flex-shrink-0 flex items-center gap-4 px-4 py-3 glass border-b border-white/[0.06]">
+          <span className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mr-2">LAYERS</span>
+          {(Object.keys(layers) as (keyof LayerControls)[]).map(key => (
+            <Switch
+              key={key}
+              checked={layers[key]}
+              onChange={val => setLayers(l => ({ ...l, [key]: val }))}
+              label={key.replace(/([A-Z])/g, ' $1').toUpperCase()}
+              accent="cyan"
+            />
+          ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={ikLocationsLoading}
+            onClick={() => {
+              boundsFittedRef.current = false
+              loadIkLocations(true)
+            }}
+          >
+            Sync IK (OSM)
+          </Button>
+          <Button variant="secondary" size="sm" loading={loading} onClick={loadFlights} className="ml-auto">
+            Sync Aviation
+          </Button>
+          {ikLocationsLoading && (
+            <span className="text-[10px] font-mono text-[#00E5FF]">Geokodowanie OSM…</span>
+          )}
+          {ikLocationsResolved && !ikLocationsLoading && (
+            <span className="text-[10px] font-mono text-[#66778B]">IK · OSM/Nominatim</span>
+          )}
+          {weather && layers.weather && (
+            <div className="text-[10px] font-mono text-[#94A3B8] ml-4">
+              {weather.temperature.toFixed(1)}°C · w10m {weather.windSpeed} km/h
+              {weather.windSpeed180m != null && ` · w180m ${weather.windSpeed180m} km/h`}
+              {weather.cloudCover != null && ` · chm. ${weather.cloudCover}%`}
+              {weather.rainMm != null && weather.rainMm > 0 && ` · opad ${weather.rainMm} mm`}
+              {' · '}{weather.condition}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Map */}
-      <div className="flex-1 relative">
+      <div className={incidentMode ? 'tactical-map__viewport' : 'flex-1 relative'}>
         <div ref={mapRef} className="absolute inset-0" />
 
-        {/* Object detail panel */}
-        {selectedObj && (
+        {selectedObj && !incidentMode && (
           <IkObjectDetailPanel object={selectedObj} onClose={() => setSelectedObj(null)} />
         )}
 
-        {/* Active drones on map indicator */}
-        {activeMissions.length > 0 && (
+        {activeMissions.length > 0 && !incidentMode && (
           <div className="absolute bottom-4 left-4 glass-panel ui-panel z-[1000]" style={{ padding: '14px 16px', maxWidth: 320 }}>
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#00E5FF] mb-2">
               DRONY W MISJI ({activeMissions.length})
