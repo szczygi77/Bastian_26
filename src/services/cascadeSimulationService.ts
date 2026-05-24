@@ -1,5 +1,6 @@
 import { getImpactTimeline } from '@/services/cascadeEngine'
 import { buildGraph } from '@/services/graphEngine'
+import { enrichCascadeResult } from '@/services/cascadeEvidenceService'
 import type {
   CascadeReplayFrame,
   CascadeResult,
@@ -95,15 +96,35 @@ export function runCascadeWithContainment(
   const totalImpactScore = nodes.reduce((sum, n) => sum + n.impactScore, 0) / Math.max(nodes.length, 1)
   const timelineMinutes = Math.max(...nodes.map(n => n.affectedAt), 0)
 
-  return {
-    incidentObjectId,
-    nodes,
-    totalImpactScore,
-    timelineMinutes,
-    affectedCount: nodes.length,
-    criticalCount: nodes.filter(n => n.severity === 'critical').length,
-    computedAt: new Date(),
-  }
+  return enrichCascadeResult(
+    {
+      incidentObjectId,
+      nodes,
+      totalImpactScore,
+      timelineMinutes,
+      affectedCount: nodes.length,
+      criticalCount: nodes.filter(n => n.severity === 'critical').length,
+      computedAt: new Date(),
+    },
+    objects,
+    containedNodeIds,
+  )
+}
+
+function computeBackupLoadTradeoff(
+  objects: IKObject[],
+  containedNodeIds: string[],
+  preventedNodeIds: string[],
+): number {
+  const containedEnergy = containedNodeIds.filter(id => {
+    const obj = objects.find(o => o.id === id)
+    return obj?.category === 'energy' || obj?.category === 'fuel'
+  }).length
+  const preventedCritical = preventedNodeIds.filter(id => {
+    const obj = objects.find(o => o.id === id)
+    return (obj?.criticality ?? 0) >= 4
+  }).length
+  return Math.min(45, containedEnergy * 9 + preventedCritical * 3)
 }
 
 export function simulateContainment(
@@ -116,12 +137,12 @@ export function simulateContainment(
   const containedIds = new Set(contained.nodes.map(n => n.objectId))
   const preventedNodeIds = [...baselineIds].filter(id => !containedIds.has(id))
 
-  const impactReduction = Math.max(
-    0,
-    baseline.totalImpactScore - contained.totalImpactScore,
-  )
+  const beforeImpact = baseline.totalImpactScore
+  const afterImpact = contained.totalImpactScore
+  const impactReduction = Math.max(0, beforeImpact - afterImpact)
   const timeSavedMinutes = Math.max(0, baseline.timelineMinutes - contained.timelineMinutes)
-  const residualRisk = Math.min(100, contained.totalImpactScore)
+  const residualRisk = Math.min(100, afterImpact)
+  const tradeoffBackupLoadIncrease = computeBackupLoadTradeoff(objects, containedNodeIds, preventedNodeIds)
 
   return {
     containedNodeIds,
@@ -131,6 +152,11 @@ export function simulateContainment(
     impactReduction,
     timeSavedMinutes,
     residualRisk,
+    beforeImpact,
+    afterImpact,
+    beforeAffectedCount: baseline.affectedCount,
+    afterAffectedCount: contained.affectedCount,
+    tradeoffBackupLoadIncrease,
   }
 }
 

@@ -79,7 +79,9 @@ function createWindow() {
   win.once('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      void shell.openExternal(url)
+    }
     return { action: 'deny' }
   })
 

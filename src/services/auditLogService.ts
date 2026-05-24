@@ -28,9 +28,9 @@ export function logAction(params: {
   mode: SystemMode
 }): AuditEntry {
   const severity: AuditEntry['severity'] =
-    ['scenario_start', 'alert_escalate', 'drone_dispatch'].includes(params.action)
+    ['scenario_start', 'alert_escalate', 'drone_dispatch', 'containment_executed'].includes(params.action)
       ? 'warning'
-      : ['alert_resolve', 'recommendation_approve'].includes(params.action)
+      : ['alert_resolve', 'recommendation_approve', 'cascade_generated'].includes(params.action)
         ? 'critical'
         : 'info'
 

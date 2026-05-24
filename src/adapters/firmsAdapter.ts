@@ -104,8 +104,11 @@ export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
 
 export function getFIRMSSyncStatus(): SyncStatus {
   const dataAge = lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 60000) : 999
+  if (lastFetchMode === 'missing_key') {
+    return { status: 'offline', lastSync, dataAge: lastSync ? dataAge : 999 }
+  }
   const status =
-    lastFetchMode === 'missing_key' || lastFetchMode === 'error'
+    lastFetchMode === 'error'
       ? 'error'
       : lastFetchMode === 'cached'
         ? 'offline'

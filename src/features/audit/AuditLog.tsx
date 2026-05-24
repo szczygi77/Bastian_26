@@ -17,6 +17,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   logout: 'WYLOGOWANIE',
   scenario_start: 'START SCENARIUSZA',
   scenario_abort: 'PRZERWANIE SCENARIUSZA',
+  cascade_generated: 'GENERACJA KASKADY',
+  containment_executed: 'WYKONANIE CONTAINMENT',
   alert_acknowledge: 'POTWIERDZENIE ALERTU',
   alert_escalate: 'ESKALACJA ALERTU',
   alert_resolve: 'ZAMKNIĘCIE ALERTU',

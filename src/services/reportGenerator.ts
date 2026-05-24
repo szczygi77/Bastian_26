@@ -10,8 +10,10 @@ import type {
   PublicDataSourceStatus,
   Recommendation,
   ComplianceRequirement,
+  ContainmentSimulationResult,
 } from '@/types'
 import { generateId, formatTimestamp } from '@/utils/format'
+import { buildCascadeEvidenceExport } from '@/services/cascadeEvidenceService'
 
 function buildPublicDataEvidenceReport(
   sources: PublicDataSourceStatus[],
@@ -25,11 +27,14 @@ function buildPublicDataEvidenceReport(
       name: s.sourceName,
       id: s.sourceId,
       status: s.status,
+      isMock: s.isMock ?? false,
+      isStale: s.isStale ?? s.status === 'stale',
       lastSync: s.lastSync?.toISOString() ?? null,
       recordsFetched: s.recordsFetched,
       authMethod: s.authMethod,
       errorMessage: s.errorMessage,
       cacheTtlMinutes: s.cacheTtlMinutes,
+      trustScore: s.trustScore,
     })),
     integrityNote: 'Status LIVE oznacza realny fetch w tej sesji. CACHED/STALE/ERROR/MISSING_KEY nie są prezentowane jako live.',
   }
@@ -180,27 +185,38 @@ function buildCascadeReport(
   operator: string
 ): Record<string, unknown> {
   return {
+    ...buildCascadeEvidenceExport({ cascade, objects, operator }),
     reportType: 'CASCADE_ANALYSIS_REPORT',
-    generatedBy: operator,
-    generatedAt: new Date().toISOString(),
-    cascadeRoot: cascade.incidentObjectId,
-    propagationTree: cascade.nodes.map(n => ({
-      depth: n.depth,
-      objectId: n.objectId,
-      name: objects.find(o => o.id === n.objectId)?.shortName,
-      via: n.via,
-      affectedAt: n.affectedAt,
-      severity: n.severity,
-      impactScore: n.impactScore.toFixed(2),
-    })),
-    summary: {
-      totalAffected: cascade.affectedCount,
-      criticalAffected: cascade.criticalCount,
-      maxPropagationTime: cascade.timelineMinutes,
-      overallImpactScore: cascade.totalImpactScore.toFixed(2),
-    },
     algorithm: 'BFS — Breadth-First Search (deterministyczny, nie AI)',
     auditNote: 'Graf zależności IK — w pełni audytowalny, zgodny z EU AI Act (nie jest systemem AI)',
+  }
+}
+
+function buildAuditExportReport(
+  auditEntries: AuditEntry[],
+  operator: string,
+): Record<string, unknown> {
+  const sorted = [...auditEntries].sort((a, b) => a.sequenceId - b.sequenceId)
+  return {
+    reportType: 'AUDIT_CHAIN_EXPORT',
+    generatedBy: operator,
+    generatedAt: new Date().toISOString(),
+    chainLength: sorted.length,
+    genesisHash: sorted[0]?.previousHash ?? 'GENESIS',
+    terminalHash: sorted[sorted.length - 1]?.chainHash ?? null,
+    entries: sorted.map(e => ({
+      sequenceId: e.sequenceId,
+      timestamp: e.timestamp.toISOString(),
+      operator: e.operator,
+      action: e.action,
+      details: e.details,
+      incidentId: e.incidentId,
+      mode: e.mode,
+      exportHash: e.exportHash,
+      previousHash: e.previousHash,
+      chainHash: e.chainHash,
+    })),
+    integrityNote: 'Hash chain — każdy wpis jest powiązany z poprzednim.',
   }
 }
 
@@ -239,6 +255,7 @@ export function generateReport(params: {
   auditEntries?: AuditEntry[]
   publicDataSources?: PublicDataSourceStatus[]
   complianceRequirements?: ComplianceRequirement[]
+  containment?: ContainmentSimulationResult | null
 }): ReportDefinition {
   const {
     type,
@@ -252,6 +269,7 @@ export function generateReport(params: {
     auditEntries,
     publicDataSources,
     complianceRequirements,
+    containment,
   } = params
 
   let content: Record<string, unknown> = {}
@@ -279,9 +297,25 @@ export function generateReport(params: {
       title = 'Raport Analizy Kaskadowej'
       content = cascade ? buildCascadeReport(cascade, objects, operator) : {}
       break
+    case 'cascade_evidence':
+      title = 'Cascade Evidence Report'
+      content = cascade
+        ? buildCascadeEvidenceExport({
+            cascade,
+            objects,
+            operator,
+            incidentId: incident?.id,
+            containment,
+          })
+        : {}
+      break
     case 'public_data':
       title = 'Raport Źródeł Publicznych'
       content = buildPublicDataEvidenceReport(publicDataSources ?? [], operator)
+      break
+    case 'audit_export':
+      title = 'Audit Chain Export'
+      content = buildAuditExportReport(auditEntries ?? [], operator)
       break
     case 'drone_mission':
       title = 'Raport Misji Dronowych (Skymarshal)'

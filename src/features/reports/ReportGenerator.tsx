@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   FileOutput, Download, Eye,
-  AlertTriangle, GitBranch, ArrowUpFromLine, Plane, Scale,
+  AlertTriangle, GitBranch, ArrowUpFromLine, Plane, Scale, Database, Shield,
   type LucideIcon,
 } from 'lucide-react'
+import { useAuditState, useIncidentState, usePublicDataState } from '@/store/selectors'
 import { useAppStore } from '@/store/useAppStore'
 import { generateReport, renderReportHTML } from '@/services/reportGenerator'
 import { logAction } from '@/services/auditLogService'
@@ -15,15 +16,22 @@ import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/
 import type { ReportType, ReportDefinition } from '@/types'
 
 const REPORT_TYPES: { type: ReportType; label: string; desc: string; icon: LucideIcon }[] = [
-  { type: 'incident', label: 'INCIDENT REPORT', desc: 'Raport incydentu zgodny z formatem CERT Polska / NIS2', icon: AlertTriangle },
-  { type: 'cascade', label: 'CASCADE ANALYSIS', desc: 'Pełna analiza kaskady BFS/DFS z drzewem propagacji', icon: GitBranch },
+  { type: 'incident', label: 'INCIDENT REPORT', desc: 'Raport incydentu z timeline, containment i decyzjami operatora', icon: AlertTriangle },
+  { type: 'cascade_evidence', label: 'CASCADE EVIDENCE', desc: 'Dowód deterministycznej kaskady — hash, T+ timeline, propagation path', icon: Shield },
+  { type: 'cascade', label: 'CASCADE ANALYSIS', desc: 'Pełna analiza kaskady BFS z drzewem propagacji', icon: GitBranch },
+  { type: 'public_data', label: 'PUBLIC API EVIDENCE', desc: 'Status źródeł LIVE/CACHED/MISSING_KEY — bez fałszywego LIVE', icon: Database },
+  { type: 'audit_export', label: 'AUDIT EXPORT', desc: 'Łańcuch hash audytu — evidence-grade export', icon: Scale },
   { type: 'escalation', label: 'ESCALATION REPORT', desc: 'Raport eskalacji z listą alertów i działaniami', icon: ArrowUpFromLine },
-  { type: 'drone_mission', label: 'DRONE MISSION LOG', desc: 'Raport misji Skymarshal z adapters info', icon: Plane },
-  { type: 'compliance', label: 'COMPLIANCE REPORT', desc: 'Status zgodności ze wszystkimi regulacjami', icon: Scale },
+  { type: 'drone_mission', label: 'DRONE MISSION LOG', desc: 'Raport misji SkyMarshal — koordynacja, nie sterowanie', icon: Plane },
+  { type: 'compliance', label: 'COMPLIANCE SNAPSHOT', desc: 'Status zgodności NIS2 / EU AI Act', icon: Scale },
 ]
 
 export function ReportGenerator() {
-  const { cascadeResult, alerts, missions, ikObjects, operator, mode, addAuditEntry } = useAppStore()
+  const { cascadeResult, alerts, missions, ikObjects, containmentResult } = useAppStore()
+  const { operator, mode, addAuditEntry, auditEntries } = useAuditState()
+  const { incidents, activeIncidentId } = useIncidentState()
+  const { publicDataSources } = usePublicDataState()
+  const activeIncident = incidents.find(i => i.id === activeIncidentId || i.status === 'open')
   const [selectedType, setSelectedType] = useState<ReportType>('incident')
   const [generatedReport, setGeneratedReport] = useState<ReportDefinition | null>(null)
   const [preview, setPreview] = useState(false)
@@ -40,6 +48,10 @@ export function ReportGenerator() {
       missions,
       objects: ikObjects,
       operator: operator?.name ?? 'OPERATOR',
+      incident: activeIncident ?? undefined,
+      auditEntries,
+      publicDataSources,
+      containment: containmentResult,
     })
     setGeneratedReport(report)
     setGenerating(false)

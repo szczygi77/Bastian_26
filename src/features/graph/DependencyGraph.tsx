@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, memo } from 'react'
+import { useEffect, useRef, useState, memo, useMemo } from 'react'
 import * as d3 from 'd3'
+import { useGraphState } from '@/store/selectors'
 import { useAppStore } from '@/store/useAppStore'
 import { buildGraph } from '@/services/graphEngine'
 import { explainNodeImpact, getRootCausePath } from '@/services/cascadeSimulationService'
@@ -45,7 +46,11 @@ export const DependencyGraph = memo(function DependencyGraph({
     cascadeReplayFrames, cascadeReplayIndex, setSelectedNodeForContainment,
     containmentResult, containmentRecovery, updateGraphComputeState,
     selectedNodeForContainment,
-  } = useAppStore()
+  } = useGraphState()
+  const ikObjectSignature = useMemo(
+    () => ikObjects.map(o => `${o.id}:${o.status}:${o.criticality}`).join(','),
+    [ikObjects],
+  )
   const [selectedNode, setSelectedNode] = useState<IKObject | null>(null)
   const [simRunning, setSimRunning] = useState(false)
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set())
@@ -272,8 +277,11 @@ export const DependencyGraph = memo(function DependencyGraph({
     setSimRunning(true)
     updateGraphComputeState(true)
 
-    return () => { simulation.stop() }
-  }, [ikObjects, cascadeResult, revealedIds, containmentResult, containmentRecovery, selectedNodeForContainment, updateGraphComputeState])
+    return () => {
+      simulation.stop()
+      simulationRef.current = null
+    }
+  }, [ikObjectSignature, cascadeResult?.incidentObjectId, cascadeResult?.affectedCount, revealedIds, containmentResult, containmentRecovery, selectedNodeForContainment, updateGraphComputeState])
 
   const selectedIKObj = selectedNode ? ikObjects.find(o => o.id === selectedNode.id) : null
   const isIncident = variant === 'incident'

@@ -76,16 +76,45 @@ export default function App() {
 
   useEffect(() => {
     if (!operator) return
-    void runOperationalHeartbeat()
-    const heartbeat = setInterval(() => {
+
+    let heartbeatId: ReturnType<typeof setInterval> | null = null
+    let telemetryId: ReturnType<typeof setInterval> | null = null
+    let tabVisible = document.visibilityState !== 'hidden'
+
+    function startTimers() {
+      if (heartbeatId || telemetryId) return
       void runOperationalHeartbeat()
-    }, 20000)
-    const telemetry = setInterval(() => {
-      tickOperationalTelemetry()
-    }, 3000)
+      heartbeatId = setInterval(() => {
+        if (tabVisible) void runOperationalHeartbeat()
+      }, 20000)
+      telemetryId = setInterval(() => {
+        if (tabVisible) tickOperationalTelemetry()
+      }, 3000)
+    }
+
+    function stopTimers() {
+      if (heartbeatId) clearInterval(heartbeatId)
+      if (telemetryId) clearInterval(telemetryId)
+      heartbeatId = null
+      telemetryId = null
+    }
+
+    function onVisibilityChange() {
+      tabVisible = document.visibilityState !== 'hidden'
+      if (tabVisible) {
+        void runOperationalHeartbeat()
+        startTimers()
+      } else {
+        stopTimers()
+      }
+    }
+
+    startTimers()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
-      clearInterval(heartbeat)
-      clearInterval(telemetry)
+      stopTimers()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [operator, runOperationalHeartbeat, tickOperationalTelemetry])
 

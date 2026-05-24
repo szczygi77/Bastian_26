@@ -1,5 +1,6 @@
 import { envConfig, hasCdseCredentials } from '@/config/env'
 import type { SyncStatus } from '@/types'
+import type { AdapterFetchMode } from '@/adapters/adapterState'
 
 const TOKEN_URL =
   'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'
@@ -23,6 +24,16 @@ export interface SentinelSceneMeta {
 let lastSync: Date | null = null
 let cachedMeta: SentinelSceneMeta | null = null
 let tokenCache: { accessToken: string; expiresAt: number } | null = null
+let lastFetchMode: AdapterFetchMode = 'empty'
+let lastError: string | undefined
+
+const DEMO_BASELINE_META: SentinelSceneMeta = {
+  productId: 'DEMO-S1-STALOWA-WOLA',
+  productName: 'SENTINEL-1 IW GRD (baseline cache)',
+  acquisitionStart: new Date(Date.now() - 48 * 3600 * 1000),
+  platform: 'SENTINEL-1',
+  lastUpdate: new Date(),
+}
 
 async function fetchAccessToken(): Promise<string> {
   const clientId = envConfig.cdseClientId
@@ -76,7 +87,17 @@ async function fetchAccessToken(): Promise<string> {
  */
 export async function fetchSentinelMetadata(): Promise<SentinelSceneMeta | null> {
   if (!hasCdseCredentials()) {
-    return getFromCacheOrNull()
+    lastFetchMode = 'missing_key'
+    lastError = 'VITE_CDSE_CLIENT_ID/SECRET not configured'
+    const cached = getFromCacheOrNull()
+    if (cached) {
+      lastFetchMode = 'cached'
+      return cached
+    }
+    lastFetchMode = 'mock'
+    cachedMeta = DEMO_BASELINE_META
+    lastSync = new Date()
+    return DEMO_BASELINE_META
   }
 
   const controller = new AbortController()
@@ -127,14 +148,23 @@ export async function fetchSentinelMetadata(): Promise<SentinelSceneMeta | null>
 
     cachedMeta = meta
     lastSync = new Date()
+    lastFetchMode = 'live'
+    lastError = undefined
     localStorage.setItem(
       CACHE_KEY,
       JSON.stringify({ meta, timestamp: Date.now() })
     )
     return meta
-  } catch {
+  } catch (e) {
     clearTimeout(timeoutId)
-    return getFromCacheOrNull()
+    lastError = e instanceof Error ? e.message : 'fetch failed'
+    const cached = getFromCacheOrNull()
+    if (cached) {
+      lastFetchMode = 'cached'
+      return cached
+    }
+    lastFetchMode = 'error'
+    return null
   }
 }
 
@@ -157,10 +187,13 @@ function getFromCacheOrNull(): SentinelSceneMeta | null {
 
 export function getSentinelSyncStatus(): SyncStatus {
   if (!hasCdseCredentials()) {
+    const dataAge = lastSync
+      ? Math.floor((Date.now() - lastSync.getTime()) / 60000)
+      : 999
     return {
-      status: 'offline',
-      lastSync: null,
-      dataAge: 999,
+      status: lastFetchMode === 'cached' || lastFetchMode === 'mock' ? 'offline' : 'error',
+      lastSync,
+      dataAge,
     }
   }
 
@@ -169,10 +202,24 @@ export function getSentinelSyncStatus(): SyncStatus {
     : 999
 
   return {
-    status: dataAge < 360 ? 'synced' : dataAge < 1440 ? 'synced' : 'offline',
+    status: lastFetchMode === 'error'
+      ? 'error'
+      : dataAge < 360
+        ? 'synced'
+        : dataAge < 1440
+          ? 'synced'
+          : 'offline',
     lastSync,
     dataAge,
   }
+}
+
+export function getSentinelFetchMode(): AdapterFetchMode {
+  return lastFetchMode
+}
+
+export function getSentinelLastError(): string | undefined {
+  return lastError
 }
 
 export function getSatelliteCacheFromSentinel(meta: SentinelSceneMeta | null): {

@@ -49,16 +49,26 @@ export interface CascadeNode {
   severity: 'critical' | 'high' | 'medium' | 'low'
   impactScore: number  // 0-100
   via: string[]        // which dependencies triggered this
+  parentNodeId?: string
+  propagationPath?: string[]
+  dependencyReason?: string
+  confidence?: number
 }
 
 export interface CascadeResult {
   incidentObjectId: string
+  rootCauseNodeId?: string
   nodes: CascadeNode[]
+  impactedNodes?: string[]
   totalImpactScore: number
   timelineMinutes: number
   affectedCount: number
   criticalCount: number
   computedAt: Date
+  generatedAt?: Date
+  engineVersion?: string
+  inputHash?: string
+  deterministicSignature?: string
 }
 
 export interface CascadeReplayFrame {
@@ -75,6 +85,11 @@ export interface ContainmentSimulationResult {
   impactReduction: number
   timeSavedMinutes: number
   residualRisk: number
+  beforeImpact: number
+  afterImpact: number
+  beforeAffectedCount: number
+  afterAffectedCount: number
+  tradeoffBackupLoadIncrease?: number
 }
 
 export interface NodeImpactExplanation {
@@ -381,6 +396,8 @@ export type AuditAction =
   | 'logout'
   | 'scenario_start'
   | 'scenario_abort'
+  | 'cascade_generated'
+  | 'containment_executed'
   | 'alert_acknowledge'
   | 'alert_escalate'
   | 'alert_resolve'
@@ -477,7 +494,7 @@ export type PublicSourceStatus =
 
 export interface PublicDataSourceStatus {
   sourceName: string
-  sourceId: 'weather' | 'firms' | 'opensky' | 'osm' | 'sentinel'
+  sourceId: 'weather' | 'firms' | 'opensky' | 'osm' | 'sentinel' | 'rcb' | 'tetra' | 'pionier'
   status: PublicSourceStatus
   lastSync: Date | null
   latencyMs: number | null
@@ -485,6 +502,8 @@ export interface PublicDataSourceStatus {
   errorMessage?: string
   cacheTtlMinutes?: number
   authMethod?: string
+  isMock?: boolean
+  isStale?: boolean
   trustScore: number
   staleDurationMinutes: number
   fallbackMode: 'none' | 'cache' | 'offline' | 'mock' | 'degraded'
@@ -508,10 +527,12 @@ export interface Operator {
 export type ReportType =
   | 'incident'
   | 'cascade'
+  | 'cascade_evidence'
   | 'escalation'
   | 'drone_mission'
   | 'compliance'
   | 'public_data'
+  | 'audit_export'
 
 export interface ReportDefinition {
   id: string

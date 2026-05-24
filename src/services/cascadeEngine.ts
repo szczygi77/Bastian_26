@@ -1,5 +1,8 @@
 import type { IKObject, CascadeResult, CascadeNode } from '@/types'
 import { buildGraph, type Graph } from './graphEngine'
+import { enrichCascadeResult, CASCADE_ENGINE_VERSION } from '@/services/cascadeEvidenceService'
+
+export { CASCADE_ENGINE_VERSION }
 
 const CASCADE_SPEED_MINUTES: Record<string, number> = {
   energy: 0,
@@ -81,15 +84,18 @@ export function runCascadeBFS(
   const timelineMinutes = Math.max(...nodes.map(n => n.affectedAt), 0)
   const criticalCount = nodes.filter(n => n.severity === 'critical').length
 
-  return {
-    incidentObjectId,
-    nodes,
-    totalImpactScore,
-    timelineMinutes,
-    affectedCount: nodes.length,
-    criticalCount,
-    computedAt: new Date(),
-  }
+  return enrichCascadeResult(
+    {
+      incidentObjectId,
+      nodes,
+      totalImpactScore,
+      timelineMinutes,
+      affectedCount: nodes.length,
+      criticalCount,
+      computedAt: new Date(),
+    },
+    objects,
+  )
 }
 
 export function getImpactTimeline(result: CascadeResult, objects: IKObject[]): {

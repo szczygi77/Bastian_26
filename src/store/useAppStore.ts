@@ -71,126 +71,9 @@ import {
   saveScenarioRun,
   type HydratedAppData,
 } from '@/services/databaseService'
+import type { AppState } from '@/store/types'
 
-interface AppState {
-  // Auth
-  operator: Operator | null
-  setOperator: (op: Operator | null) => void
-
-  // Mode
-  mode: SystemMode
-  setMode: (mode: SystemMode) => void
-
-  // Online
-  online: boolean
-  setOnline: (online: boolean) => void
-
-  // IK Objects
-  ikObjects: IKObject[]
-  ikLocationsLoading: boolean
-  ikLocationsResolved: boolean
-  mapCenter: [number, number]
-  loadIkLocations: (force?: boolean) => Promise<void>
-  updateObjectStatus: (id: string, status: IKObject['status']) => void
-  resetObjectStatuses: () => void
-
-  // Alerts
-  alerts: Alert[]
-  addAlerts: (alerts: Alert[]) => void
-  updateAlert: (id: string, patch: Partial<Alert>) => void
-  clearAlerts: () => void
-
-  // Incidents
-  incidents: Incident[]
-  addIncident: (incident: Incident) => void
-  updateIncident: (id: string, patch: Partial<Incident>) => void
-  restoreIncidentContext: (incidentId?: string, forceScenarioReapply?: boolean) => boolean
-  containIncident: (incidentId: string, summary: string) => void
-  handoverIncident: (incidentId: string, toShift: string, summary: string) => void
-  resolveIncident: (incidentId: string, summary: string) => void
-  abortScenarioOperation: (summary?: string) => void
-
-  // Scenario
-  activeScenarioRun: ScenarioRun | null
-  setActiveScenarioRun: (run: ScenarioRun | null) => void
-  cascadeResult: CascadeResult | null
-  setCascadeResult: (result: CascadeResult | null) => void
-
-  // Recommendations
-  recommendations: Recommendation[]
-  addRecommendation: (rec: Recommendation) => void
-  approveAction: (recId: string, actionId: string) => Promise<void>
-  rejectAction: (recId: string) => void
-
-  // Cascade simulation
-  cascadeReplayFrames: CascadeReplayFrame[]
-  cascadeReplayIndex: number
-  setCascadeReplayIndex: (index: number) => void
-  startCascadeReplay: () => void
-  containmentResult: ContainmentSimulationResult | null
-  simulateContainmentAt: (nodeIds: string[]) => void
-  clearContainment: () => void
-  activeCascadeView: CascadeResult | null
-  selectedNodeForContainment: string | null
-  setSelectedNodeForContainment: (id: string | null) => void
-
-  // Operational heartbeat
-  operationalEvents: OperationalEvent[]
-  operationalPulse: OperationalPulse | null
-  operationalTelemetry: OperationalTelemetry
-  graphComputeState: GraphComputeState
-  containmentRecovery: ContainmentRecoveryState | null
-  runOperationalHeartbeat: () => Promise<void>
-  tickOperationalTelemetry: () => void
-  updateGraphComputeState: (simRunning?: boolean) => void
-
-  // National overview
-  nationalRegions: NationalRegionSummary[]
-  refreshNationalOverview: () => void
-
-  // Drones
-  drones: DroneUnit[]
-  updateDrone: (id: string, patch: Partial<DroneUnit>) => void
-  missions: DroneMission[]
-  addMission: (mission: DroneMission) => void
-  updateMission: (id: string, patch: Partial<DroneMission>) => void
-  tickActiveMissions: () => void
-
-  // Audit
-  auditEntries: AuditEntry[]
-  addAuditEntry: (entry: AuditEntry) => void
-
-  // System Health
-  systemHealth: SystemHealth
-  refreshSystemHealth: () => Promise<void>
-
-  // UI
-  sidebarExpanded: boolean
-  setSidebarExpanded: (val: boolean) => void
-  activeView: string
-  setActiveView: (view: string) => void
-  activeIncidentId: string | null
-  setActiveIncidentId: (id: string | null) => void
-  openIncidentCommand: (incidentId?: string | null) => void
-  incidentMapFilter: string[] | null
-  setIncidentMapFilter: (ids: string[] | null) => void
-  publicDataSources: PublicDataSourceStatus[]
-  refreshPublicDataSources: () => void
-  eventHeartbeatAt: Date
-  pulseEventHeartbeat: () => void
-  focusedIkObjectId: string | null
-  setFocusedIkObjectId: (id: string | null) => void
-  openIkObjectOnMap: (id: string) => void
-  openIkObjectOnGraph: (id: string) => void
-  openIkObjectAlerts: (id: string) => void
-  openScenarios: () => void
-  focusedDroneMissionId: string | null
-  setFocusedDroneMissionId: (id: string | null) => void
-  openDroneMissionOnMap: (missionId: string) => void
-
-  // Database
-  hydrateDatabase: (data: HydratedAppData) => void
-}
+export type { AppState } from '@/store/types'
 
 export const useAppStore = create<AppState>((set, get) => ({
   operator: null,
@@ -515,12 +398,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (run) void saveScenarioRun(run).catch(() => {})
   },
   cascadeResult: null,
-  setCascadeResult: (result) => set({
-    cascadeResult: result,
-    activeCascadeView: result,
-    cascadeReplayFrames: result ? buildCascadeReplayFrames(result) : [],
-    cascadeReplayIndex: result ? buildCascadeReplayFrames(result).length - 1 : 0,
-  }),
+  setCascadeResult: (result) => {
+    set({
+      cascadeResult: result,
+      activeCascadeView: result,
+      cascadeReplayFrames: result ? buildCascadeReplayFrames(result) : [],
+      cascadeReplayIndex: result ? buildCascadeReplayFrames(result).length - 1 : 0,
+    })
+    if (result) {
+      const entry = logAction({
+        operator: get().operator?.name ?? 'SYSTEM',
+        action: 'cascade_generated',
+        details: `Kaskada wygenerowana: ${result.affectedCount} węzłów, impact ${result.totalImpactScore.toFixed(1)}, hash ${result.deterministicSignature ?? 'n/a'}`,
+        affectedObject: result.incidentObjectId,
+        incidentId: get().activeIncidentId ?? undefined,
+        mode: get().mode,
+      })
+      set(s => ({ auditEntries: [entry, ...s.auditEntries] }))
+      void saveAuditEntry(entry).catch(() => {})
+    }
+  },
 
   recommendations: [],
   addRecommendation: (rec) => {
@@ -729,8 +626,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const entry = logAction({
       operator: get().operator?.name ?? 'OPERATOR',
-      action: 'scenario_start',
-      details: `Symulacja containment: ${nodeIds.join(', ')}`,
+      action: 'containment_executed',
+      details: `Containment: ${result.beforeAffectedCount}→${result.afterAffectedCount} węzłów, impact ${result.beforeImpact.toFixed(1)}→${result.afterImpact.toFixed(1)}, prevented: ${result.preventedNodeIds.join(', ') || 'none'}`,
+      incidentId: incident?.id,
       mode: get().mode,
     })
     get().addAuditEntry(entry)
