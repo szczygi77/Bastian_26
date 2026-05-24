@@ -275,6 +275,7 @@ export const DependencyGraph = memo(function DependencyGraph({
   return (
     <div className="graph-page">
       <GraphSimulationBar />
+      <div className="graph-page__body">
       <div className="graph-page__canvas">
         <div className="graph-page__toolbar glass-panel ui-panel">
           <div className="ui-filter-bar" style={{ gap: 12 }}>
@@ -428,6 +429,7 @@ export const DependencyGraph = memo(function DependencyGraph({
           </div>
         </aside>
       )}
+      </div>
     </div>
   )
 })

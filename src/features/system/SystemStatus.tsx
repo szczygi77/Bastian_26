@@ -14,7 +14,7 @@ function ConnectionRow({ label, status, detail }: { label: string; status: strin
   const warn = status === 'degraded' || status === 'active'
   const dotColor = ok ? 'green' : warn ? 'warning' : 'danger'
   return (
-    <div className="ui-row-item">
+    <div className="ui-row-item system-connection-row">
       <span className="text-[11px] font-mono text-[#94A3B8]">{label}</span>
       <div className="flex items-center gap-3">
         {detail && <span className="text-[10px] font-mono text-[#66778B]">{detail}</span>}
@@ -72,7 +72,7 @@ export function SystemStatus() {
 
       {/* Szybkie sprawdzenie systemów */}
       <Card label="SPRAWDZENIE SYSTEMÓW">
-        <div className="ui-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        <div className="system-check-grid">
           <CheckItem
             label="Połączenie"
             value={online ? 'Online' : 'Offline'}
@@ -244,15 +244,15 @@ export function SystemStatus() {
       <Card label="PUBLIC DATA SOURCES">
         <div className="ui-stack" style={{ gap: 12 }}>
           {publicDataSources.map(source => (
-            <div key={source.sourceId} className="ui-row-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="flex items-center justify-between mb-2">
-                <div>
+            <div key={source.sourceId} className="ui-row-item ui-row-item--stack">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="min-w-0">
                   <div className="text-[11px] font-mono text-[#E6EDF3]">{source.sourceName}</div>
                   <div className="text-[10px] font-mono text-[#66778B]">{source.sourceId.toUpperCase()}</div>
                 </div>
                 <Badge variant={sourceStatusColor(source.status)}>{source.status.toUpperCase()}</Badge>
               </div>
-              <div className="ui-grid ui-grid-4" style={{ gap: 8 }}>
+              <div className="system-source-meta">
                 <div>
                   <div className="text-[9px] font-mono text-[#66778B] uppercase">Last sync</div>
                   <div className="text-[10px] font-mono text-[#94A3B8]">
@@ -320,11 +320,7 @@ function CheckItem({
   const color = ok ? '#22C55E' : warn ? '#F59E0B' : '#66778B'
 
   return (
-    <div className="ui-row-item" style={{
-      flexDirection: 'column',
-      alignItems: 'stretch',
-      background: 'rgba(255,255,255,0.02)',
-    }}>
+    <div className="ui-row-item ui-row-item--stack" style={{ background: 'rgba(255,255,255,0.02)' }}>
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 9, color: '#66778B',
         letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8,
