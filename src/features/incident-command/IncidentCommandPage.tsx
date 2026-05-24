@@ -15,6 +15,7 @@ import { IncidentReportActions, logReportExport } from '@/features/incident-comm
 import { IncidentContainmentSummary } from '@/features/incident-command/IncidentContainmentSummary'
 import { IncidentLifecycleBar } from '@/features/incident-command/IncidentLifecycleBar'
 import { OperationalHeartbeatStrip } from '@/components/dashboard/OperationalHeartbeatStrip'
+import { ThreatDetectionPanel } from '@/components/dashboard/ThreatDetectionPanel'
 
 export function IncidentCommandPage() {
   const {
@@ -42,6 +43,7 @@ export function IncidentCommandPage() {
     setActiveIncidentId,
     pulseEventHeartbeat,
     restoreIncidentContext,
+    threatSignals,
   } = useAppStore()
   const { toast } = useToast()
 
@@ -88,14 +90,13 @@ export function IncidentCommandPage() {
   function handleEscalate() {
     if (!incident) return
     updateIncident(incident.id, { severity: 'critical' })
-    const entry = logAction({
+    void logAction({
       operator: operator?.name ?? 'OPERATOR',
       action: 'alert_escalate',
       details: `Eskalowano incydent ${incident.title}`,
       incidentId: incident.id,
       mode,
-    })
-    addAuditEntry(entry)
+    }).then(entry => addAuditEntry(entry))
     pulseEventHeartbeat()
     toast({ title: 'Incydent eskalowany', variant: 'warning' })
   }
@@ -119,15 +120,14 @@ export function IncidentCommandPage() {
       availability: false,
       coordinates: result.mission.currentPosition,
     })
-    const entry = logAction({
+    void logAction({
       operator: operator?.name ?? 'OPERATOR',
       action: 'drone_dispatch',
       details: `Dispatch z ICM: ${result.drone.model} → ${rootObject.shortName}`,
       affectedObject: rootObject.id,
       incidentId: incident.id,
       mode,
-    })
-    addAuditEntry(entry)
+    }).then(entry => addAuditEntry(entry))
     pulseEventHeartbeat()
     toast({ title: 'Zasób wysłany', description: `${result.drone.model} w drodze`, variant: 'success' })
   }
@@ -169,15 +169,19 @@ export function IncidentCommandPage() {
             operator={operator?.name ?? 'OPERATOR'}
             mode={mode}
             onExported={details => {
-              const entry = logReportExport(details, incident.id, operator?.name ?? 'OPERATOR', mode)
-              addAuditEntry(entry)
-              pulseEventHeartbeat()
-              toast({ title: 'Raport wygenerowany', description: details, variant: 'success' })
+              void logReportExport(details, incident.id, operator?.name ?? 'OPERATOR', mode)
+                .then(entry => {
+                  addAuditEntry(entry)
+                  pulseEventHeartbeat()
+                  toast({ title: 'Raport wygenerowany', description: details, variant: 'success' })
+                })
             }}
           />
           <BadgeLike status={incident.status} />
         </div>
       </header>
+
+      <ThreatDetectionPanel signals={threatSignals} compact />
 
       <div className="icm-page__grid">
         <aside className="icm-page__left">

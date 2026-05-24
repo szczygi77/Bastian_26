@@ -20,6 +20,7 @@ import type {
   ScenarioRun,
   SystemHealth,
   SystemMode,
+  ThreatSignal,
 } from '@/types'
 
 export interface AppState {
@@ -83,6 +84,10 @@ export interface AppState {
   runOperationalHeartbeat: () => Promise<void>
   tickOperationalTelemetry: () => void
   updateGraphComputeState: (simRunning?: boolean) => void
+
+  threatSignals: ThreatSignal[]
+  lastThreatScanAt: Date | null
+  runThreatScan: () => Promise<void>
 
   nationalRegions: NationalRegionSummary[]
   refreshNationalOverview: () => void

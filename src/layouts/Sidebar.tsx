@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Map, GitBranch, Play, Bell, Cpu, Radio,
-  FileText, Shield, Activity, ChevronLeft, ChevronRight, Command, Globe, LayoutDashboard,
+  FileText, Shield, Activity, ChevronLeft, ChevronRight, Command, Globe, LayoutDashboard, FileBarChart,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -32,6 +32,7 @@ const NAV_GROUPS = [
     label: 'Administracja',
     items: [
       { id: 'audit', label: 'Dziennik', icon: FileText },
+      { id: 'reports', label: 'Raporty', icon: FileBarChart },
       { id: 'compliance', label: 'Zgodność', icon: Shield },
       { id: 'system', label: 'System', icon: Activity },
     ],

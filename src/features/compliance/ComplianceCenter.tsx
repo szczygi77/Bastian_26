@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Shield, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Download, Rocket } from 'lucide-react'
-import { COMPLIANCE_REQUIREMENTS } from '@/data/compliance'
+import { getEffectiveComplianceRequirements } from '@/services/complianceStatusService'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
 import { generateReport, downloadReportFile } from '@/services/reportGenerator'
@@ -26,17 +26,22 @@ export function ComplianceCenter() {
   const { operator, mode, addAuditEntry } = useAppStore()
   const { toast } = useToast()
 
-  const filtered = COMPLIANCE_REQUIREMENTS.filter(r => filterReg === 'all' || r.regulation === filterReg)
+  const requirements = getEffectiveComplianceRequirements({
+    pdfExportAvailable: true,
+    humanApprovalEnforced: true,
+  })
 
-  const productionGaps = COMPLIANCE_REQUIREMENTS.filter(
+  const filtered = requirements.filter(r => filterReg === 'all' || r.regulation === filterReg)
+
+  const productionGaps = requirements.filter(
     r => r.actionNeeded || r.status === 'partial' || r.status === 'non_compliant' || r.status === 'pending_review',
   )
 
   const stats = {
-    compliant: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'compliant').length,
-    partial: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'partial').length,
-    pending: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'pending_review').length,
-    nonCompliant: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'non_compliant').length,
+    compliant: requirements.filter(r => r.status === 'compliant').length,
+    partial: requirements.filter(r => r.status === 'partial').length,
+    pending: requirements.filter(r => r.status === 'pending_review').length,
+    nonCompliant: requirements.filter(r => r.status === 'non_compliant').length,
   }
 
   function exportComplianceReport(format: 'json' | 'html') {
@@ -44,16 +49,15 @@ export function ComplianceCenter() {
       type: 'compliance',
       objects: [],
       operator: operator?.name ?? 'OPERATOR',
-      complianceRequirements: COMPLIANCE_REQUIREMENTS,
+      complianceRequirements: requirements,
     })
     downloadReportFile(report, format)
-    const entry = logAction({
+    void logAction({
       operator: operator?.name ?? 'OPERATOR',
       action: 'report_export',
       details: `Wyeksportowano raport zgodności (${format})`,
       mode,
-    })
-    addAuditEntry(entry)
+    }).then(entry => addAuditEntry(entry))
     toast({ title: 'Raport zgodności wyeksportowany', variant: 'success' })
   }
 
@@ -68,7 +72,7 @@ export function ComplianceCenter() {
               COMPLIANCE CENTER
             </h1>
             <p className="text-[11px] font-mono text-[#66778B]">
-              KSC · NIS2 · CER · RODO · EU AI Act · STANAG · ISA/IEC 62443 · ISO 27001
+              KSC · NIS2 · CER · RODO · EU AI Act · STANAG · ISA/IEC 62443 · ISO 27001 · ISO 22301
             </p>
           </div>
         </div>

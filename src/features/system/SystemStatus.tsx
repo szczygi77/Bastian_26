@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { Badge } from '@/components/ui/Badge'
+import { AUDIT_RETENTION_DAYS } from '@/services/auditLogService'
 import { PageShell } from '@/components/layout/PageShell'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 
@@ -139,10 +140,10 @@ export function SystemStatus() {
         </Card>
 
         {/* Communication links */}
-        <Card label="COMMUNICATION LINKS (MOCK)">
+        <Card label={mode === 'simulation' ? 'COMMUNICATION LINKS (TETRA MOCK · ćwiczenie)' : 'COMMUNICATION LINKS (MOCK)'}>
           <div className="ui-stack" style={{ gap: 8 }}>
-          <ConnectionRow label="RCB / PIONIER" status={systemHealth.rcbLinkStatus} detail="AES-256 E2E" />
-          <ConnectionRow label="TETRA (Służby)" status={systemHealth.tetraLinkStatus} detail="CH 1-9" />
+          <ConnectionRow label="RCB / PIONIER" status={systemHealth.rcbLinkStatus} detail={mode === 'simulation' ? 'MOCK' : 'AES-256 E2E'} />
+          <ConnectionRow label="TETRA (Służby)" status={systemHealth.tetraLinkStatus} detail={mode === 'simulation' ? 'MOCK · ćwiczenie' : 'CH 1-9'} />
           <ConnectionRow label="GSM Fallback" status={systemHealth.gsmFallbackStatus} detail="SMS Queue" />
           <ConnectionRow label="Internet (Public)" status={online ? 'connected' : 'offline'} detail={online ? 'Sync active' : 'Degraded mode'} />
           </div>
@@ -234,7 +235,7 @@ export function SystemStatus() {
             <div className="space-y-1 text-[10px] font-mono text-[#66778B]">
               <div>Deployment: ON-PREMISE ✓</div>
               <div>No public cloud ✓</div>
-              <div>Audit retention: 5 lat ✓</div>
+              <div>Audit retention: {AUDIT_RETENTION_DAYS} dni (polityka aktywna) ✓</div>
               <div>Air-gap capable: ready</div>
             </div>
           </div>

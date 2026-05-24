@@ -8,6 +8,8 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getIkCategoryLabel } from '@/features/map/ikMapMarkers'
 import { SimulatedCameraFeed } from '@/components/camera/SimulatedCameraFeed'
+import { getIkCameraFeedMapping, resolveIkPublicCamera } from '@/data/ikCameraFeeds'
+import { PublicCameraFeed } from '@/features/national/PublicCameraFeed'
 import { ObjectHeroImage } from '@/components/map/ObjectHeroImage'
 import { IkCameraExpandedView } from '@/features/map/IkCameraExpandedView'
 
@@ -61,6 +63,10 @@ function IkObjectDetailPanelBody({
     [media.cameras, activeCamera.id],
   )
 
+  const ikFeedMapping = useMemo(() => getIkCameraFeedMapping(object.id), [object.id])
+  const livePublicCamera = useMemo(() => resolveIkPublicCamera(object.id), [object.id])
+  const useLiveHls = ikFeedMapping.kind === 'hls' && livePublicCamera != null
+
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date()), 1000)
     return () => clearInterval(timer)
@@ -108,32 +114,54 @@ function IkObjectDetailPanelBody({
 
           <div className="map-ik-panel__section-title">
             <Camera size={13} />
-            PODGLĄD CCTV — {activeCamera.code}
+            PODGLĄD CCTV — {useLiveHls ? livePublicCamera.code : activeCamera.code}
           </div>
           <div className="map-ik-panel__camera-subtitle">
-            {activeCamera.label} · {activeCamera.zone}
+            {useLiveHls ? livePublicCamera.label : activeCamera.label} · {useLiveHls ? ikFeedMapping.sourceLabel : activeCamera.zone}
           </div>
 
           <div className="map-ik-panel__live">
-            <SimulatedCameraFeed
-              seed={`${object.id}:${activeCamera.id}`}
-              cameraIndex={activeCameraIndex}
-              variant="cctv"
-              mode="rgb"
-              degraded={activeCamera.status === 'degraded'}
-              offline={activeCamera.status === 'offline'}
-              className="map-ik-panel__sim"
-              overlay={(
+            {useLiveHls && livePublicCamera ? (
+              <div className="map-ik-panel__hls">
+                <PublicCameraFeed camera={livePublicCamera} />
                 <div className="map-ik-panel__live-overlay">
-                  <span className="map-ik-panel__live-badge">LIVE</span>
+                  <span className="map-ik-panel__live-badge map-ik-panel__live-badge--hls">HLS LIVE</span>
                   <span className="map-ik-panel__live-time">
                     {clock.toLocaleTimeString('pl-PL', { hour12: false })}
                   </span>
                 </div>
-              )}
-            />
+              </div>
+            ) : (
+              <SimulatedCameraFeed
+                seed={`${object.id}:${activeCamera.id}`}
+                cameraIndex={activeCameraIndex}
+                variant="cctv"
+                mode="rgb"
+                degraded={activeCamera.status === 'degraded'}
+                offline={activeCamera.status === 'offline'}
+                className="map-ik-panel__sim"
+                overlay={(
+                  <div className="map-ik-panel__live-overlay">
+                    <span className="map-ik-panel__live-badge map-ik-panel__live-badge--sim">SIMULATED</span>
+                    <span className="map-ik-panel__live-time">
+                      {clock.toLocaleTimeString('pl-PL', { hour12: false })}
+                    </span>
+                  </div>
+                )}
+              />
+            )}
             <div className="map-ik-panel__live-status">
-              <CameraStatusBadge status={activeCamera.status} />
+              {useLiveHls ? (
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
+                  letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 6,
+                  background: 'rgba(34,197,94,0.15)', color: '#22C55E',
+                }}>
+                  HLS LIVE
+                </span>
+              ) : (
+                <CameraStatusBadge status={activeCamera.status} />
+              )}
             </div>
           </div>
 

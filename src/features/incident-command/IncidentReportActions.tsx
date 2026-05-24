@@ -1,6 +1,6 @@
 import { FileOutput } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { generateReport, downloadReportFile } from '@/services/reportGenerator'
+import { generateReport, downloadReportFile, downloadReportPdf } from '@/services/reportGenerator'
 import { exportSignedAuditJson, logAction } from '@/services/auditLogService'
 import type { Alert, AuditEntry, CascadeResult, IKObject, Incident, PublicDataSourceStatus, Recommendation } from '@/types'
 import type { SystemMode } from '@/types'
@@ -28,7 +28,7 @@ export function IncidentReportActions({
   mode: SystemMode
   onExported: (details: string) => void
 }) {
-  function exportIncident(format: 'json' | 'html') {
+  function exportIncident(format: 'json' | 'html' | 'pdf') {
     if (!cascadeResult) return
     const report = generateReport({
       type: 'incident',
@@ -41,7 +41,11 @@ export function IncidentReportActions({
       objects: ikObjects,
       operator,
     })
-    downloadReportFile(report, format)
+    if (format === 'pdf') {
+      void downloadReportPdf(report)
+    } else {
+      downloadReportFile(report, format)
+    }
     onExported(`Wygenerowano raport incydentu (${format.toUpperCase()})`)
   }
 
@@ -68,8 +72,9 @@ export function IncidentReportActions({
     onExported('Wygenerowano raport źródeł publicznych')
   }
 
-  function exportAudit() {
-    const blob = new Blob([exportSignedAuditJson()], { type: 'application/json' })
+  async function exportAudit() {
+    const data = await exportSignedAuditJson()
+    const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
@@ -90,7 +95,10 @@ export function IncidentReportActions({
       <Button size="sm" variant="secondary" onClick={exportPublicData}>
         <FileOutput size={12} /> Public API
       </Button>
-      <Button size="sm" variant="ghost" onClick={exportAudit}>
+      <Button size="sm" variant="secondary" disabled={!cascadeResult} onClick={() => exportIncident('pdf')}>
+        <FileOutput size={12} /> Raport PDF (RCB)
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => void exportAudit()}>
         <FileOutput size={12} /> Audit signed
       </Button>
     </div>

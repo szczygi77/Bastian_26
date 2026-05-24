@@ -2,9 +2,12 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { OperationalTelemetryRail } from '@/components/dashboard/OperationalTelemetryRail'
 import { useElectronShell } from '@/hooks/useElectronShell'
+import { useAppStore } from '@/store/useAppStore'
+import { FlaskConical } from 'lucide-react'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isMacOS, titlebarHeight } = useElectronShell()
+  const mode = useAppStore(s => s.mode)
 
   return (
     <div className="grid-bg" style={{
@@ -21,6 +24,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             borderBottom: '1px solid rgba(255,255,255,0.04)',
           }}
         />
+      )}
+
+      {mode === 'simulation' && (
+        <div className="simulation-banner" role="status">
+          <FlaskConical size={14} aria-hidden />
+          <span>TRYB SYMULACJI — dane ćwiczeniowe, adaptery TETRA/RCB oznaczone jako MOCK</span>
+        </div>
       )}
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>

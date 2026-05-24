@@ -10,6 +10,16 @@ export interface TetraLinkStatus {
   activeChannels: number
   encryption: string
   channels: TetraChannel[]
+  isMock: boolean
+}
+
+export interface TetraBroadcastResult {
+  success: boolean
+  ackId: string
+  ackAt: Date
+  channelId: number
+  mock: true
+  simulationLabel: string
 }
 
 const CHANNELS: TetraChannel[] = [
@@ -24,7 +34,7 @@ const CHANNELS: TetraChannel[] = [
   { id: 9, name: 'RES — Rezerwa', status: 'active' },
 ]
 
-export function getTetraLinkStatus(online: boolean): TetraLinkStatus {
+export function getTetraLinkStatus(online: boolean, simulationMode = false): TetraLinkStatus {
   if (!online) {
     return {
       status: 'offline',
@@ -32,30 +42,44 @@ export function getTetraLinkStatus(online: boolean): TetraLinkStatus {
       activeChannels: 0,
       encryption: 'AES-256 (TETRA E2E)',
       channels: CHANNELS.map(ch => ({ ...ch, status: 'offline' as const })),
+      isMock: true,
     }
   }
 
   const active = CHANNELS.filter(ch => ch.status !== 'offline').length
   return {
-    status: active >= 7 ? 'connected' : 'degraded',
+    status: simulationMode ? 'degraded' : active >= 7 ? 'connected' : 'degraded',
     lastHeartbeat: new Date(Date.now() - 8000),
     activeChannels: active,
     encryption: 'AES-256 (TETRA E2E)',
     channels: CHANNELS,
+    isMock: true,
   }
 }
 
+/** Symulowany broadcast TETRA — opóźnienie ACK ~2s, zawsze oznaczony jako MOCK / ćwiczenie */
 export async function broadcastTetraAlert(
   message: string,
   channelId = 1,
-): Promise<{ success: boolean; ackId: string }> {
-  await new Promise(r => setTimeout(r, 350))
+): Promise<TetraBroadcastResult> {
+  await new Promise(resolve => setTimeout(resolve, 2000))
   const channel = CHANNELS.find(ch => ch.id === channelId)
   if (!channel || channel.status === 'offline') {
-    return { success: false, ackId: '' }
+    return {
+      success: false,
+      ackId: '',
+      ackAt: new Date(),
+      channelId,
+      mock: true,
+      simulationLabel: 'TETRA MOCK · ćwiczenie',
+    }
   }
   return {
     success: true,
-    ackId: `TETRA-CH${channelId}-${Date.now().toString(36).toUpperCase()}`,
+    ackId: `TETRA-MOCK-CH${channelId}-${Date.now().toString(36).toUpperCase()}`,
+    ackAt: new Date(),
+    channelId,
+    mock: true,
+    simulationLabel: 'TETRA MOCK · ćwiczenie',
   }
 }

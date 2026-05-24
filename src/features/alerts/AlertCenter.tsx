@@ -14,6 +14,7 @@ import { FilterPills } from '@/components/ui/FilterPills'
 import { IncidentRow } from '@/components/ui/IncidentRow'
 import { Alert } from '@/components/ui/Alert'
 import { useToast } from '@/components/ui/Toast'
+import { canPerformAction, getRbacDeniedMessage } from '@/services/rbacService'
 import type { Alert as AlertType } from '@/types'
 
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
@@ -100,22 +101,37 @@ export function AlertCenter() {
 
   function acknowledge(alert: AlertType) {
     updateAlert(alert.id, { status: 'acknowledged', acknowledgedAt: new Date() })
-    const entry = logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_acknowledge', details: `Potwierdzono alert: ${alert.title}`, alertId: alert.id, mode })
-    addAuditEntry(entry)
+    void logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_acknowledge', details: `Potwierdzono alert: ${alert.title}`, alertId: alert.id, mode })
+      .then(entry => addAuditEntry(entry))
     toast({ title: 'Alert potwierdzony', description: alert.title, variant: 'success' })
     if (selected?.id === alert.id) setSelected({ ...alert, status: 'acknowledged' })
   }
 
   function escalate(alert: AlertType) {
+    if (!canPerformAction(operator?.clearanceLevel, 'escalate_alert')) {
+      toast({ title: getRbacDeniedMessage('escalate_alert', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
     updateAlert(alert.id, { status: 'escalated', escalatedAt: new Date() })
-    const entry = logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_escalate', details: `Eskalowano alert: ${alert.title}`, alertId: alert.id, mode })
-    addAuditEntry(entry)
+    void logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_escalate', details: `Eskalowano alert: ${alert.title}`, alertId: alert.id, mode })
+      .then(entry => addAuditEntry(entry))
     void enqueueAction({
       entity: 'audit_entries',
       entityId: alert.id,
       payload: { type: 'alert_escalate', alertId: alert.id, title: alert.title, incidentId: alert.incidentId },
     })
-    void broadcastTetraAlert(`ESKALACJA: ${alert.title}`, 1)
+    void broadcastTetraAlert(`ESKALACJA: ${alert.title}`, 1).then(result => {
+      if (result.success) {
+        void logAction({
+          operator: operator?.name ?? 'OPERATOR',
+          action: 'alert_escalate',
+          details: `TETRA MOCK ACK (${result.simulationLabel}): ${result.ackId} · kanał ${result.channelId}`,
+          alertId: alert.id,
+          mode,
+        }).then(entry => addAuditEntry(entry))
+        toast({ title: 'TETRA MOCK · ćwiczenie', description: `ACK ${result.ackId}`, variant: 'default' })
+      }
+    })
     toast({ title: 'Alert eskalowany', description: alert.title, variant: 'warning' })
     setEscalateModal(false)
     if (selected?.id === alert.id) setSelected({ ...alert, status: 'escalated' })
@@ -123,8 +139,8 @@ export function AlertCenter() {
 
   function resolve(alert: AlertType) {
     updateAlert(alert.id, { status: 'resolved', resolvedAt: new Date() })
-    const entry = logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_resolve', details: `Zamknięto alert: ${alert.title}`, alertId: alert.id, mode })
-    addAuditEntry(entry)
+    void logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_resolve', details: `Zamknięto alert: ${alert.title}`, alertId: alert.id, mode })
+      .then(entry => addAuditEntry(entry))
     toast({ title: 'Alert zamknięty', description: alert.title, variant: 'default' })
     if (selected?.id === alert.id) setSelected({ ...alert, status: 'resolved' })
   }
@@ -138,8 +154,8 @@ export function AlertCenter() {
     a.download = `bastion-alert-${alert.id}.json`
     a.click()
     URL.revokeObjectURL(url)
-    const entry = logAction({ operator: operator?.name ?? 'OPERATOR', action: 'report_export', details: `Wyeksportowano alert: ${alert.id}`, alertId: alert.id, mode })
-    addAuditEntry(entry)
+    void logAction({ operator: operator?.name ?? 'OPERATOR', action: 'report_export', details: `Wyeksportowano alert: ${alert.id}`, alertId: alert.id, mode })
+      .then(entry => addAuditEntry(entry))
   }
 
   const criticalCount = alerts.filter(a => a.status === 'active' && a.severity === 'critical').length
@@ -287,6 +303,7 @@ export function AlertCenter() {
                 <h2 className="text-[14px] font-mono font-bold text-[#E6EDF3] mb-2">{selected.title}</h2>
                 <div className="flex items-center gap-2 flex-wrap">
                   <SeverityBadge severity={selected.severity} />
+                  {selected.autoDetected && <Badge variant="cyan">AUTO-DETECT</Badge>}
                   <StatusBadge status={selected.status} />
                   <Badge variant="muted">{alertKindLabel(selected, selected.id === activeGroup?.rootAlert.id)}</Badge>
                   <Badge variant="muted">{selected.source.replace(/_/g, ' ')}</Badge>
@@ -401,8 +418,14 @@ export function AlertCenter() {
                 </Button>
               )}
               {(selected.status === 'active' || selected.status === 'acknowledged') && (
-                <Button variant="danger" size="sm" onClick={() => setEscalateModal(true)}>
-                  <ArrowUpRight size={12} /> Eskaluj incydent
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setEscalateModal(true)}
+                  disabled={!canPerformAction(operator?.clearanceLevel, 'escalate_alert')}
+                  title={!canPerformAction(operator?.clearanceLevel, 'escalate_alert') ? getRbacDeniedMessage('escalate_alert', operator?.clearanceLevel) : undefined}
+                >
+                  <ArrowUpRight size={12} /> Eskaluj (TETRA MOCK)
                 </Button>
               )}
               {selected.status !== 'resolved' && (
@@ -422,7 +445,7 @@ export function AlertCenter() {
       <Modal open={escalateModal} onClose={() => setEscalateModal(false)} title="Eskalacja alertu">
         <div className="space-y-4">
           <p className="text-[12px] font-mono text-[#94A3B8]">
-            Eskalacja alertu do wyższego szczebla dowodzenia. Akcja zostanie zalogowana w audit log i raport zostanie wygenerowany.
+            Eskalacja alertu do wyższego szczebla dowodzenia. Kanał TETRA MOCK · ćwiczenie — akcja zostanie zalogowana w dzienniku audytu.
           </p>
           {selected && <div className="glass rounded-[14px] p-3"><div className="text-[11px] font-mono text-[#E6EDF3]">{selected.title}</div></div>}
           <div className="flex gap-2 justify-end">

@@ -67,6 +67,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
     containmentRecovery,
     operationalTelemetry,
     incidents,
+    threatSignals,
   } = useAppStore()
 
   const cascadeResult = incidents.some(i => i.status === 'open' || i.status === 'contained')
@@ -182,6 +183,21 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
         }).addTo(map)
         zonesRef.current.push(zone)
       }
+
+      const liveThreat = threatSignals.find(
+        s => s.ikObjectId === obj.id && (s.status === 'live' || s.status === 'monitoring'),
+      )
+      if (liveThreat && layers.impactZones) {
+        const threatZone = L.circle([obj.coordinates[0], obj.coordinates[1]], {
+          radius: 1200,
+          fillColor: '#FF8A1F',
+          fillOpacity: 0.04,
+          color: '#FF8A1F',
+          weight: 2,
+          dashArray: '6 4',
+        }).addTo(map)
+        zonesRef.current.push(threatZone)
+      }
     }
 
     // Dependency links
@@ -206,7 +222,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
         }
       }
     }
-  }, [ikObjects, cascadeResult, layers, incidentMode, incidentMapFilter, containmentRecovery])
+  }, [ikObjects, cascadeResult, layers, incidentMode, incidentMapFilter, containmentRecovery, threatSignals])
 
   // Sector stress overlays
   useEffect(() => {

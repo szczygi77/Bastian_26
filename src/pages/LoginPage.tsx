@@ -44,12 +44,12 @@ export function LoginPage() {
     setError('')
     await new Promise(r => setTimeout(r, 700))
     setOperator(selected)
-    addAuditEntry(logAction({
+    void logAction({
       operator: selected.name,
       action: 'login',
       details: `Nr ${selected.nrSluzbowy}, poziom ${selected.clearanceLevel}, stanowisko SW-WS-01`,
       mode: 'live',
-    }))
+    }).then(entry => addAuditEntry(entry))
     setLoading(false)
   }
 

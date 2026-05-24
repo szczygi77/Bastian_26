@@ -3,11 +3,13 @@ import { Cpu, CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp } from
 import { useAppStore } from '@/store/useAppStore'
 import { selectRecommendationsForActiveIncidents } from '@/store/operationalSelectors'
 import { formatTimestamp } from '@/utils/format'
+import { canPerformAction, getRbacDeniedMessage } from '@/services/rbacService'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PageShell } from '@/components/layout/PageShell'
+import { useToast } from '@/components/ui/Toast'
 import type { Recommendation } from '@/types'
 
 const RISK_PL: Record<Recommendation['riskLevel'], string> = {
@@ -27,8 +29,10 @@ const EXEC_PL: Record<string, string> = {
 }
 
 export function DecisionSupport() {
-  const { recommendations, incidents, approveAction, rejectAction } = useAppStore()
+  const { recommendations, incidents, approveAction, rejectAction, operator } = useAppStore()
   const [expanded, setExpanded] = useState<string | null>(null)
+  const { toast } = useToast()
+  const canApprove = canPerformAction(operator?.clearanceLevel, 'approve_recommendation')
 
   const activeRecs = useMemo(
     () => selectRecommendationsForActiveIncidents(recommendations, incidents),
@@ -36,10 +40,18 @@ export function DecisionSupport() {
   )
 
   function handleApproveAction(rec: Recommendation, actionId: string) {
+    if (!canApprove) {
+      toast({ title: getRbacDeniedMessage('approve_recommendation', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
     void approveAction(rec.id, actionId)
   }
 
   function handleApproveAll(rec: Recommendation) {
+    if (!canApprove) {
+      toast({ title: getRbacDeniedMessage('approve_recommendation', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
     for (const action of rec.actions) {
       if (!action.approved) void approveAction(rec.id, action.id)
     }
@@ -86,6 +98,11 @@ export function DecisionSupport() {
                       <Badge variant="muted">Pewność: {rec.confidence}%</Badge>
                       {rec.requiresApproval && <Badge variant="orange">Wymaga zatwierdzenia</Badge>}
                       {allApproved && <Badge variant="green">Zatwierdzono</Badge>}
+                      {rec.generationTimeMs != null && (
+                        <Badge variant={rec.generationTimeMs <= 4000 ? 'green' : 'warning'}>
+                          Wygenerowano w {(rec.generationTimeMs / 1000).toFixed(2)}s
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-[13px] text-[#E6EDF3]">{rec.summary}</p>
                     <div className="text-[11px] text-[#66778B] mt-1">{formatTimestamp(rec.generatedAt)}</div>
@@ -158,8 +175,8 @@ export function DecisionSupport() {
                 )}
 
                 {!allApproved && (
-                  <div className="flex gap-2">
-                    <Button variant="primary" size="sm" onClick={() => handleApproveAll(rec)}>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Button variant="primary" size="sm" onClick={() => handleApproveAll(rec)} disabled={!canApprove} title={!canApprove ? getRbacDeniedMessage('approve_recommendation', operator?.clearanceLevel) : undefined}>
                       <CheckCircle size={12} /> Zatwierdź procedury
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => rejectAction(rec.id)}>

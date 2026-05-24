@@ -261,6 +261,7 @@ function buildActionsForScenario(ctx: RuleContext): RecommendationAction[] {
 }
 
 export function generateRecommendation(ctx: RuleContext): Recommendation {
+  const startedAt = performance.now()
   const { cascade, scenario, objects } = ctx
   const actions = buildActionsForScenario(ctx)
   const triggerObj = objects.find(o => o.id === cascade.incidentObjectId)
@@ -300,5 +301,6 @@ export function generateRecommendation(ctx: RuleContext): Recommendation {
     ],
     requiresApproval: riskLevel === 'critical' || riskLevel === 'high',
     generatedAt: new Date(),
+    generationTimeMs: Math.round(performance.now() - startedAt),
   }
 }

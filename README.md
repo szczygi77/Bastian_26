@@ -160,7 +160,58 @@ Misje: reconnaissance, thermal inspection, perimeter monitoring, communication r
 
 ---
 
-## Demo flow (hackathon — 11 kroków)
+## 14 silników analitycznych
+
+| # | Silnik | Plik | Rola |
+|---|--------|------|------|
+| 1 | Cascade Engine | `cascadeEngine.ts` | Propagacja BFS kaskady IK |
+| 2 | Graph Engine | `graphEngine.ts` | Analiza grafu zależności |
+| 3 | Recommendation Engine | `recommendationEngine.ts` | Regułowe rekomendacje operacyjne (<4s SLA) |
+| 4 | Alert Engine | `alertEngine.ts` | Lifecycle i grupowanie alertów |
+| 5 | Scenario Engine | `scenarioEngine.ts` / `cinematicScenarioFlow.ts` | Orkiestracja 9 scenariuszy |
+| 6 | SkyMarshal Engine | `skymarshalEngine.ts` | Scoring i dispatch dronów służb |
+| 7 | Execution Pipeline | `executionPipelineService.ts` | Workflow approve → execute (human-in-the-loop) |
+| 8 | Threat Detection | `threatDetectionService.ts` | 4 kategorie detekcji regułowej (AUTO-DETECT) |
+| 9 | Source Trust | `sourceTrustService.ts` | Trust score źródeł publicznych |
+| 10 | Cascade Simulation | `cascadeSimulationService.ts` | Containment i symulacja redukcji ryzyka |
+| 11 | Operational Telemetry | `operationalTelemetryService.ts` | Puls operacyjny i presja propagacji |
+| 12 | Audit Chain Verifier | `auditLogService.ts` | Łańcuch SHA-256 + weryfikacja integralności |
+| 13 | Public API Orchestrator | `apiOrchestrator.ts` / `publicApiCache` | Sync LIVE/CACHED/offline queue |
+| 14 | Simulated Camera Engine | `simulatedCameraEngine.ts` | Analiza klatki regułowa (ruch, strefy) |
+
+---
+
+## Demo flow (hackathon — 12 kroków)
+
+1. **Login CL5** → `mjr. Andrzej Kowalski (DOWÓDCA)` → PIN: `1234`
+2. **Uruchom pełne demo** → scenariusz blackout z Dashboard
+3. **Auto-detekcja** → panel „Wykryte zagrożenia” (4 kategorie) + badge AUTO-DETECT
+4. **ICM** → alerty powiązane z incydentem, eskalacja z TETRA MOCK ACK (~2s)
+5. **Rekomendacja** → badge czasu generowania (<4s lokalnie)
+6. **Approve** → human-in-the-loop przed wykonaniem akcji
+7. **Containment** → graf z redukcją węzłów dotkniętych
+8. **SkyMarshal** → dispatch najlepszego drona (THERMAL INSPECTION)
+9. **Raport PDF (RCB)** → format NIS2 Art. 23 (24h/72h)
+10. **Audit Log** → „Zweryfikuj integralność” (SHA-256 chain)
+11. **Tryb SIMULATION** → pomarańczowy banner + badge MOCK na TETRA/RCB
+12. **Mapa IK** → 3 kamery HLS LIVE (Stalowa Wola) + 10 symulowanych z badge źródła
+
+### Checklist testów jury
+
+| Test | Oczekiwany wynik |
+|------|------------------|
+| Login CL5 → pełny flow | Wszystkie 12 kroków demo flow = done |
+| Login CL2 → approve rekomendacji | Przycisk disabled + tooltip „Wymagany poziom CL4” |
+| Utrata sieci (DevTools offline) | Banner offline, sync queue, cache IndexedDB |
+| Tryb SIMULATION | Pomarańczowy banner globalny, TETRA MOCK badge |
+| Stalowa Wola HLS (HSW/ELC/MOST) | Odtwarzanie strumienia TVK Stella w panelu IK |
+| PDF raportu RCB | Plik `.pdf` pobiera się z nagłówkami NIS2 |
+| Audit chain verify | Przycisk zwraca OK + liczba wpisów SHA-256 |
+| RBAC eskalacja CL2 | Blokada eskalacji alertu (< CL3) |
+
+---
+
+## Demo flow (legacy — 11 kroków)
 
 1. **Login** → wybierz `mjr. Andrzej Kowalski (DOWÓDCA)` → PIN: `1234`
 2. **Dashboard** → sprawdź threat level, status systemów, sync statusy
@@ -168,11 +219,11 @@ Misje: reconnaissance, thermal inspection, perimeter monitoring, communication r
 4. **Dependency Graph** → zbadaj graf zależności Stalowej Woli
 5. **Scenarios** → wybierz `Sabotaż Elektrociepłowni` → `LAUNCH SCENARIO`
 6. **Graf kaskadowy** → obserwuj propagację BFS od ELC przez HSW → szpital → CZK
-7. **Alert Center** → filtruj `critical` → acknowledge → escalate
+7. **Alert Center** → filtruj `critical` → acknowledge → escalate (TETRA MOCK · ćwiczenie)
 8. **Decision Support** → zatwierdź rekomendowane działania
 9. **SkyMarshal** → wybierz misję `THERMAL INSPECTION` → cel: ELC → `DISPATCH BEST DRONE`
-10. **Audit Log** → sprawdź zapis wszystkich akcji operatora
-11. **Reports** → generuj `CASCADE ANALYSIS` → pobierz HTML / JSON
+10. **Audit Log** → sprawdź zapis wszystkich akcji operatora + weryfikacja SHA-256
+11. **Reports** → generuj `INCIDENT REPORT` → pobierz HTML / JSON / PDF
 
 ---
 

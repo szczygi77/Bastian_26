@@ -198,6 +198,34 @@ export async function getMeta(key: string): Promise<string | null> {
   return row?.value ?? null
 }
 
+export const AUDIT_RETENTION_DAYS = 1825
+
+export interface RetentionPolicyMeta {
+  retentionDays: number
+  active: boolean
+  policySetAt: string
+}
+
+export async function ensureRetentionPolicy(): Promise<RetentionPolicyMeta> {
+  const existing = await getMeta('retentionPolicy')
+  if (existing) {
+    return JSON.parse(existing) as RetentionPolicyMeta
+  }
+  const policy: RetentionPolicyMeta = {
+    retentionDays: AUDIT_RETENTION_DAYS,
+    active: true,
+    policySetAt: new Date().toISOString(),
+  }
+  await setMeta('retentionPolicy', JSON.stringify(policy))
+  return policy
+}
+
+export async function getRetentionPolicy(): Promise<RetentionPolicyMeta> {
+  const existing = await getMeta('retentionPolicy')
+  if (existing) return JSON.parse(existing) as RetentionPolicyMeta
+  return ensureRetentionPolicy()
+}
+
 export async function checkLocalDbHealth(): Promise<'healthy' | 'degraded' | 'error'> {
   try {
     const db = await getLocalDb()

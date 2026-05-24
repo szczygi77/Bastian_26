@@ -34,7 +34,7 @@ export async function buildSystemHealth(online: boolean, mode: import('@/types')
   ])
   const remoteDb = isRemoteDatabaseAvailable()
   const rcb = getRCBLinkStatus()
-  const tetra = getTetraLinkStatus(online)
+  const tetra = getTetraLinkStatus(online, mode === 'simulation')
 
   return {
     mode,
@@ -59,7 +59,7 @@ export async function buildSystemHealth(online: boolean, mode: import('@/types')
 
 export function getSystemHealth(online: boolean, mode: import('@/types').SystemMode): SystemHealth {
   const rcb = getRCBLinkStatus()
-  const tetra = getTetraLinkStatus(online)
+  const tetra = getTetraLinkStatus(online, mode === 'simulation')
 
   return {
     mode,

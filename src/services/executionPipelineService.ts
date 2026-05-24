@@ -153,7 +153,7 @@ export function markActionState(
   }
 }
 
-export function createApprovalAuditEntry(params: {
+export async function createApprovalAuditEntry(params: {
   operator: string
   recommendation: Recommendation
   action: RecommendationAction
@@ -169,7 +169,7 @@ export function createApprovalAuditEntry(params: {
   })
 }
 
-export function createExecutionAuditEntry(params: {
+export async function createExecutionAuditEntry(params: {
   operator: string
   details: string
   incidentId?: string

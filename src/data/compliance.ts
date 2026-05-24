@@ -97,4 +97,14 @@ export const COMPLIANCE_REQUIREMENTS: ComplianceRequirement[] = [
     risk: 'Średnie — certyfikacja ISO 27001 wymagana przy kontraktach z administracją',
     actionNeeded: 'Certyfikacja ISO 27001 przed pierwszym kontraktem publicznym',
   },
+  {
+    id: 'iso22301-1',
+    regulation: 'ISO 22301',
+    article: 'Clause 8.4, 8.5',
+    requirement: 'Ciągłość działania: plany BC/DR, ćwiczenia, testy odtwarzania, zarządzanie incydentami operacyjnymi',
+    bastionImplementation: 'Tryb SIMULATION do ćwiczeń, scenario engine (9 scenariuszy), cascade + containment, handover zmiany, offline-first IndexedDB',
+    status: 'partial',
+    risk: 'Średnie — wymaga formalnego planu BCMS i ćwiczeń z udziałem służb',
+    actionNeeded: 'Formalny plan ciągłości działania i roczne ćwiczenie z PSP/OSP przed certyfikacją ISO 22301',
+  },
 ]

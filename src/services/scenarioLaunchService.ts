@@ -26,7 +26,7 @@ export async function launchCinematicScenario(
   }
   store.setActiveScenarioRun(run)
 
-  store.addAuditEntry(logAction({
+  store.addAuditEntry(await logAction({
     operator: operator?.name ?? 'OPERATOR',
     action: 'scenario_start',
     details: `Uruchomiono scenariusz: ${scenario.name} (ID: ${scenario.id})`,
@@ -44,13 +44,13 @@ export async function launchCinematicScenario(
       callbacks: {
         onStep: (step, detail) => {
           options?.onStep?.(detail ? `${step}: ${detail}` : step)
-          store.addAuditEntry(logAction({
+          void logAction({
             operator: operator?.name ?? 'OPERATOR',
             action: 'scenario_start',
             details: `Cinematic flow — ${step}${detail ? `: ${detail}` : ''}`,
             affectedObject: scenario.triggerObjectId,
             mode,
-          }))
+          }).then(entry => store.addAuditEntry(entry))
         },
         updateObjectStatus: store.updateObjectStatus,
         setCascadeResult: store.setCascadeResult,
@@ -69,6 +69,7 @@ export async function launchCinematicScenario(
     }
     store.setActiveScenarioRun(completedRun)
     store.startCascadeReplay()
+    void store.runThreatScan()
     options?.onComplete?.(completedRun)
     return completedRun
   } catch {

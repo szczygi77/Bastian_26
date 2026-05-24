@@ -14,6 +14,53 @@ import type {
 } from '@/types'
 import { generateId, formatTimestamp } from '@/utils/format'
 import { buildCascadeEvidenceExport } from '@/services/cascadeEvidenceService'
+import { jsPDF } from 'jspdf'
+
+function buildRcbIncidentReport(
+  incident: Incident | undefined,
+  cascade: CascadeResult | undefined,
+  alerts: Alert[],
+  operator: string,
+): Record<string, unknown> {
+  const now = new Date()
+  const startedAt = incident?.startedAt ?? now
+  const hoursSinceStart = Math.max(0, Math.round((now.getTime() - startedAt.getTime()) / 3_600_000))
+
+  return {
+    reportType: 'RCB_INCIDENT_REPORT',
+    format: 'NIS2 Art. 23 — powiadomienie CSIRT',
+    classification: 'RESTRICTED — RCB',
+    generatedBy: operator,
+    generatedAt: now.toISOString(),
+    notificationWindows: {
+      initial24h: hoursSinceStart <= 24 ? 'W OKNIE' : 'PRZEKROCZONE',
+      detailed72h: hoursSinceStart <= 72 ? 'W OKNIE' : 'PRZEKROCZONE',
+    },
+    incidentSummary: {
+      id: incident?.id ?? 'N/A',
+      title: incident?.title ?? 'Incydent infrastruktury krytycznej',
+      severity: incident?.severity ?? cascade?.nodes[0]?.severity ?? 'critical',
+      status: incident?.status ?? 'open',
+      startedAt: startedAt.toISOString(),
+      affectedObjects: cascade?.affectedCount ?? 0,
+      criticalObjects: cascade?.criticalCount ?? 0,
+      totalImpactScore: cascade?.totalImpactScore.toFixed(2) ?? '0.00',
+    },
+    alerts: alerts.slice(0, 20).map(alert => ({
+      id: alert.id,
+      title: alert.title,
+      severity: alert.severity,
+      status: alert.status,
+      autoDetected: alert.autoDetected ?? false,
+      timestamp: alert.timestamp.toISOString(),
+    })),
+    operatorActionsRequired: [
+      'Potwierdzenie odbioru przez RCB w ciągu 24h (NIS2 Art. 23)',
+      'Pełny raport techniczny w ciągu 72h',
+      'Dołączenie łańcucha audytu SHA-256',
+    ],
+  }
+}
 
 function buildPublicDataEvidenceReport(
   sources: PublicDataSourceStatus[],
@@ -277,20 +324,28 @@ export function generateReport(params: {
 
   switch (type) {
     case 'incident':
-      title = 'Raport Incydentu'
+      title = 'Raport Incydentu — format RCB'
       if (incident && cascade && publicDataSources) {
-        content = buildIncidentBundleReport({
-          incident,
-          cascade,
-          alerts: alerts ?? [],
-          objects,
-          recommendations: recommendations ?? [],
-          auditEntries: auditEntries ?? [],
-          sources: publicDataSources,
-          operator,
-        })
+        content = {
+          ...buildIncidentBundleReport({
+            incident,
+            cascade,
+            alerts: alerts ?? [],
+            objects,
+            recommendations: recommendations ?? [],
+            auditEntries: auditEntries ?? [],
+            sources: publicDataSources,
+            operator,
+          }),
+          rcbFormat: buildRcbIncidentReport(incident, cascade, alerts ?? [], operator),
+        }
+      } else if (cascade) {
+        content = {
+          ...buildIncidentReport(cascade, alerts ?? [], objects, operator),
+          rcbFormat: buildRcbIncidentReport(incident, cascade, alerts ?? [], operator),
+        }
       } else {
-        content = cascade ? buildIncidentReport(cascade, alerts ?? [], objects, operator) : {}
+        content = buildRcbIncidentReport(incident, cascade, alerts ?? [], operator)
       }
       break
     case 'cascade':
@@ -342,7 +397,11 @@ export function generateReport(params: {
   }
 }
 
-export function downloadReportFile(report: ReportDefinition, format: 'json' | 'html' = 'json'): void {
+export function downloadReportFile(report: ReportDefinition, format: 'json' | 'html' | 'pdf' = 'json'): void {
+  if (format === 'pdf') {
+    void downloadReportPdf(report)
+    return
+  }
   const body = format === 'html' ? renderReportHTML(report) : JSON.stringify(report, null, 2)
   const mime = format === 'html' ? 'text/html' : 'application/json'
   const ext = format === 'html' ? 'html' : 'json'
@@ -355,7 +414,62 @@ export function downloadReportFile(report: ReportDefinition, format: 'json' | 'h
   URL.revokeObjectURL(url)
 }
 
+export async function downloadReportPdf(report: ReportDefinition): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const margin = 14
+  let y = margin
+
+  const writeLine = (text: string, size = 10, bold = false) => {
+    doc.setFont('courier', bold ? 'bold' : 'normal')
+    doc.setFontSize(size)
+    const lines = doc.splitTextToSize(text, 180)
+    for (const line of lines) {
+      if (y > 280) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(line, margin, y)
+      y += size * 0.45 + 2
+    }
+  }
+
+  writeLine('BASTION — RAPORT INCYDENTU (FORMAT RCB)', 14, true)
+  writeLine(`Typ: ${report.title}`, 10)
+  writeLine(`ID: ${report.id}`, 9)
+  writeLine(`Wygenerowano: ${formatTimestamp(report.generatedAt)}`, 9)
+  writeLine(`Operator: ${report.generatedBy}`, 9)
+  y += 4
+
+  const rcb = (report.content as Record<string, unknown>).rcbFormat as Record<string, unknown> | undefined
+  if (rcb) {
+    writeLine('NIS2 Art. 23 — okna powiadomienia CSIRT', 11, true)
+    const windows = rcb.notificationWindows as Record<string, string> | undefined
+    if (windows) {
+      writeLine(`24h: ${windows.initial24h}`, 9)
+      writeLine(`72h: ${windows.detailed72h}`, 9)
+    }
+    y += 2
+    writeLine('Podsumowanie incydentu', 11, true)
+    writeLine(JSON.stringify(rcb.incidentSummary, null, 2), 8)
+    y += 2
+  }
+
+  writeLine('Szczegóły techniczne', 11, true)
+  const contentText = JSON.stringify(report.content, null, 2)
+  writeLine(contentText.slice(0, 6000), 7)
+
+  doc.save(`bastion-${report.type}-${report.id}.pdf`)
+}
+
 export function renderReportHTML(report: ReportDefinition): string {
+  const rcb = (report.content as Record<string, unknown>).rcbFormat as Record<string, unknown> | undefined
+  const rcbBlock = rcb ? `
+<section class="rcb">
+  <h2>Raport incydentu — format RCB (NIS2 Art. 23)</h2>
+  <p class="meta">Okno 24h: ${(rcb.notificationWindows as Record<string, string>)?.initial24h ?? '—'} · Okno 72h: ${(rcb.notificationWindows as Record<string, string>)?.detailed72h ?? '—'}</p>
+  <pre>${JSON.stringify(rcb, null, 2)}</pre>
+</section>` : ''
+
   return `<!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -369,6 +483,7 @@ export function renderReportHTML(report: ReportDefinition): string {
   .meta { color: #66778B; font-size: 0.85rem; margin-bottom: 1rem; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
   .badge-cyan { background: rgba(0,229,255,0.15); color: #00E5FF; }
+  .rcb { border: 1px solid rgba(255,138,31,0.25); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; background: rgba(255,138,31,0.05); }
 </style>
 </head>
 <body>
@@ -376,6 +491,7 @@ export function renderReportHTML(report: ReportDefinition): string {
 <div class="meta">
   Wygenerowano: ${formatTimestamp(report.generatedAt)} | Operator: ${report.generatedBy} | ID: ${report.id}
 </div>
+${rcbBlock}
 <pre>${JSON.stringify(report.content, null, 2)}</pre>
 </body>
 </html>`

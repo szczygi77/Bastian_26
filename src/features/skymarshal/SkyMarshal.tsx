@@ -104,14 +104,13 @@ export function SkyMarshal() {
       if (completedMissionIdsRef.current.has(mission.id)) continue
       completedMissionIdsRef.current.add(mission.id)
 
-      const entry = logAction({
+      void logAction({
         operator: operator?.name ?? 'OPERATOR',
         action: 'drone_dispatch',
         details: `Misja ${mission.type} zakończona (${mission.targetShortName}): ${mission.result.summary}`,
         affectedObject: mission.targetObjectId,
         mode,
-      })
-      addAuditEntry(entry)
+      }).then(entry => addAuditEntry(entry))
       toast({
         title: 'Misja zakończona',
         description: mission.result.summary,
@@ -148,14 +147,13 @@ export function SkyMarshal() {
       setSelectedMissionId(result.mission.id)
       setFocusedDroneMissionId(result.mission.id)
 
-      const entry = logAction({
+      void logAction({
         operator: operator?.name ?? 'OPERATOR',
         action: 'drone_dispatch',
         details: `Zadysponowano dron ${result.drone.id} (${result.drone.model}) do misji ${selectedMissionType} na obiekt ${selectedTarget.name}. ETA: ${result.mission.estimatedArrivalMin}min`,
         affectedObject: selectedTarget.id,
         mode,
-      })
-      addAuditEntry(entry)
+      }).then(entry => addAuditEntry(entry))
       toast({
         title: 'Dron zadysponowany',
         description: `${result.drone.model} → ${selectedTarget.shortName} · ETA ${result.mission.estimatedArrivalMin} min`,

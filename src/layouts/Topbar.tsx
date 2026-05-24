@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, ChevronDown, LogOut } from 'lucide-react'
+import { User, ChevronDown, LogOut, Radio, FlaskConical } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
 import { useElectronShell } from '@/hooks/useElectronShell'
-import type { Operator, OperatorRole } from '@/types'
+import type { Operator, OperatorRole, SystemMode } from '@/types'
 
 const ROLE_LABEL: Record<OperatorRole, string> = {
   commander: 'Dowódca',
@@ -14,8 +14,13 @@ const ROLE_LABEL: Record<OperatorRole, string> = {
 }
 
 export function Topbar() {
-  const { operator } = useAppStore()
+  const { operator, mode, setMode, addAuditEntry } = useAppStore()
   const { sidebarBrandHeight } = useElectronShell()
+
+  function toggleMode(next: SystemMode) {
+    if (mode === next) return
+    setMode(next)
+  }
 
   return (
     <header
@@ -24,15 +29,39 @@ export function Topbar() {
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         height: sidebarBrandHeight,
         padding: '0 24px',
         zIndex: 10,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}
     >
+      <ModeToggle mode={mode} onChange={toggleMode} />
       <OperatorMenu operator={operator} />
     </header>
+  )
+}
+
+function ModeToggle({ mode, onChange }: { mode: SystemMode; onChange: (m: SystemMode) => void }) {
+  return (
+    <div className="window-no-drag mode-toggle" role="group" aria-label="Tryb operacyjny">
+      <button
+        type="button"
+        className={`mode-toggle__btn${mode === 'live' ? ' is-active' : ''}`}
+        onClick={() => onChange('live')}
+      >
+        <Radio size={12} aria-hidden />
+        LIVE
+      </button>
+      <button
+        type="button"
+        className={`mode-toggle__btn${mode === 'simulation' ? ' is-active is-simulation' : ''}`}
+        onClick={() => onChange('simulation')}
+      >
+        <FlaskConical size={12} aria-hidden />
+        SIMULATION
+      </button>
+    </div>
   )
 }
 
@@ -59,12 +88,12 @@ function OperatorMenu({ operator }: { operator: Operator | null }) {
 
   function handleLogout() {
     if (!operator) return
-    addAuditEntry(logAction({
+    void logAction({
       operator: operator.name,
       action: 'logout',
       details: 'Wylogowanie z systemu',
       mode,
-    }))
+    }).then(entry => addAuditEntry(entry))
     setOperator(null)
     setOpen(false)
   }

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuditState, useIncidentState, usePublicDataState } from '@/store/selectors'
 import { useAppStore } from '@/store/useAppStore'
-import { generateReport, renderReportHTML } from '@/services/reportGenerator'
+import { generateReport, renderReportHTML, downloadReportPdf } from '@/services/reportGenerator'
 import { logAction } from '@/services/auditLogService'
 import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -56,13 +56,12 @@ export function ReportGenerator() {
     setGeneratedReport(report)
     setGenerating(false)
 
-    const entry = logAction({
+    void logAction({
       operator: operator?.name ?? 'OPERATOR',
       action: 'report_export',
       details: `Wygenerowano raport: ${report.type} (ID: ${report.id})`,
       mode,
-    })
-    addAuditEntry(entry)
+    }).then(entry => addAuditEntry(entry))
   }
 
   function downloadJSON() {
@@ -82,6 +81,17 @@ export function ReportGenerator() {
     const a = document.createElement('a')
     a.href = url; a.download = `bastion-report-${generatedReport.id}.html`; a.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function downloadPDF() {
+    if (!generatedReport) return
+    await downloadReportPdf(generatedReport)
+    void logAction({
+      operator: operator?.name ?? 'OPERATOR',
+      action: 'report_export',
+      details: `Wyeksportowano raport PDF: ${generatedReport.type} (ID: ${generatedReport.id})`,
+      mode,
+    }).then(entry => addAuditEntry(entry))
   }
 
   return (
@@ -154,6 +164,9 @@ export function ReportGenerator() {
                 </Button>
                 <Button variant="primary" size="sm" onClick={downloadHTML}>
                   <Download size={11} /> HTML
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => void downloadPDF()}>
+                  <Download size={11} /> PDF
                 </Button>
               </div>
             </div>

@@ -5,7 +5,9 @@ import {
 import { useAppStore } from '@/store/useAppStore'
 import { canCloseIncident } from '@/services/incidentLifecycleService'
 import { Button } from '@/components/ui/Button'
+import { canPerformAction, getRbacDeniedMessage } from '@/services/rbacService'
 import { useToast } from '@/components/ui/Toast'
+
 import type { Incident } from '@/types'
 
 export function IncidentLifecycleBar({ incident }: { incident: Incident }) {
@@ -18,8 +20,10 @@ export function IncidentLifecycleBar({ incident }: { incident: Incident }) {
     handoverIncident,
     resolveIncident,
     abortScenarioOperation,
+    operator,
   } = useAppStore()
   const { toast } = useToast()
+  const canAbort = canPerformAction(operator?.clearanceLevel, 'abort_scenario')
   const [panel, setPanel] = useState<'handover' | 'resolve' | null>(null)
   const [notes, setNotes] = useState('')
   const [shift, setShift] = useState('Zmiana B — Dowódca rejonowy')
@@ -71,6 +75,10 @@ export function IncidentLifecycleBar({ incident }: { incident: Incident }) {
   }
 
   function handleAbort() {
+    if (!canAbort) {
+      toast({ title: getRbacDeniedMessage('abort_scenario', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
     abortScenarioOperation('Przerwanie scenariusza z ICM')
     toast({ title: 'Scenariusz przerwany', variant: 'warning' })
   }
@@ -111,7 +119,7 @@ export function IncidentLifecycleBar({ incident }: { incident: Incident }) {
         >
           <CheckCircle2 size={12} /> Zakończ incydent
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleAbort}>
+        <Button size="sm" variant="ghost" onClick={handleAbort} disabled={!canAbort} title={!canAbort ? getRbacDeniedMessage('abort_scenario', operator?.clearanceLevel) : undefined}>
           <StopCircle size={12} /> Przerwij scenariusz
         </Button>
       </div>

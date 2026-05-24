@@ -10,6 +10,7 @@ import type {
 import {
   checkLocalDbHealth,
   enqueueSync,
+  ensureRetentionPolicy,
   getAllAlerts,
   getAllAuditEntries,
   getAllIkStates,
@@ -82,6 +83,9 @@ async function upsertRemote(entity: SyncEntity, payload: Record<string, unknown>
 
 export async function initDatabase(): Promise<{ localOk: boolean; remoteOk: boolean }> {
   const localStatus = await checkLocalDbHealth()
+  if (localStatus === 'healthy') {
+    await ensureRetentionPolicy()
+  }
   remoteAvailable = hasSupabaseConfig() ? await testSupabaseConnection() : false
   return {
     localOk: localStatus === 'healthy',

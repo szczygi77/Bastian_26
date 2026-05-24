@@ -16,6 +16,8 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { formatTimeAgo, statusColor } from '@/utils/format'
+import { DemoOperationsStrip } from '@/components/dashboard/DemoOperationsStrip'
+import { ThreatDetectionPanel } from '@/components/dashboard/ThreatDetectionPanel'
 import type { PublicDataSourceStatus } from '@/types'
 
 function KpiCell({
@@ -144,6 +146,7 @@ export function Dashboard() {
     refreshPublicDataSources: s.refreshPublicDataSources,
     openIncidentCommand: s.openIncidentCommand,
     setActiveView: s.setActiveView,
+    threatSignals: s.threatSignals,
   })))
 
   useEffect(() => {
@@ -259,6 +262,8 @@ export function Dashboard() {
           />
         </div>
       </section>
+
+      <ThreatDetectionPanel signals={state.threatSignals} />
 
       {/* SEKCJA 2 — AKTYWNA OPERACJA */}
       <section className="ops-section">

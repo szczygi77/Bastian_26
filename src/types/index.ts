@@ -260,6 +260,26 @@ export type AlertSource =
   | 'manual'
   | 'skymarshal'
   | 'system'
+  | 'threat_detection'
+
+export type ThreatCategory =
+  | 'fire_smoke'
+  | 'unauthorized_movement'
+  | 'thermal_anomaly'
+  | 'infrastructure_change'
+
+export type ThreatSignalStatus = 'clear' | 'monitoring' | 'live'
+
+export interface ThreatSignal {
+  id: string
+  category: ThreatCategory
+  status: ThreatSignalStatus
+  source: string
+  ikObjectId?: string
+  confidence: number
+  evidence: string[]
+  detectedAt: Date
+}
 
 export interface Alert {
   id: string
@@ -278,6 +298,8 @@ export interface Alert {
   resolvedAt?: Date
   escalatedAt?: Date
   exportId?: string
+  autoDetected?: boolean
+  threatCategory?: ThreatCategory
 }
 
 // ─── Incidents ──────────────────────────────────────────────────────────────
@@ -600,6 +622,8 @@ export interface Recommendation {
   approvedBy?: string
   approvedAt?: Date
   generatedAt: Date
+  /** Czas generowania silnika reguł (ms) */
+  generationTimeMs?: number
 }
 
 export interface RecommendationAction {

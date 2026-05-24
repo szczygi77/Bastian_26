@@ -29,6 +29,7 @@ import {
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
 import { orchestratePublicDataSync } from '@/services/apiOrchestrator'
+import { buildNationalOverview } from '@/services/nationalOverviewService'
 import { getSystemHealth, buildSystemHealth } from '@/services/systemHealthService'
 import { getPublicDataSources } from '@/services/publicDataStatusService'
 import type { PublicDataSourceStatus } from '@/types'
@@ -47,7 +48,11 @@ import {
 } from '@/services/executionPipelineService'
 import { simulateContainment, buildCascadeReplayFrames } from '@/services/cascadeSimulationService'
 import type { CascadeReplayFrame } from '@/types'
-import { buildNationalOverview } from '@/services/nationalOverviewService'
+import {
+  scanThreats,
+  threatSignalToAlert,
+} from '@/services/threatDetectionService'
+import type { ThreatSignal } from '@/types'
 import {
   applyIkStatusPatches,
   commitCascadeState,
@@ -88,13 +93,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: 'live',
   setMode: (mode) => {
     const op = get().operator
-    const entry = logAction({
+    void logAction({
       operator: op?.name ?? 'SYSTEM',
       action: 'mode_change',
       details: `Zmiana trybu systemu na: ${mode.toUpperCase()}`,
       mode,
+    }).then(entry => {
+      set(state => ({ mode, auditEntries: [entry, ...state.auditEntries] }))
     })
-    set(state => ({ mode, auditEntries: [entry, ...state.auditEntries] }))
   },
 
   online: navigator.onLine,
@@ -238,14 +244,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       notes: buildClosureNote({ incident, operator, mode: 'contained', summary }),
     }
     get().updateIncident(incidentId, patch)
-    const entry = logAction({
+    void logAction({
       operator,
       action: 'incident_contain',
       details: `Incydent oznaczony jako opanowany: ${incident.title}. ${summary}`,
       incidentId,
       mode: state.mode,
-    })
-    get().addAuditEntry(entry)
+    }).then(entry => get().addAuditEntry(entry))
     set(s => ({
       operationalEvents: pushOperationalEvent(
         s.operationalEvents,
@@ -264,14 +269,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().updateIncident(incidentId, {
       notes: buildHandoverNote({ fromOperator: operator, toShift, summary, incident }),
     })
-    const entry = logAction({
+    void logAction({
       operator,
       action: 'incident_handover',
       details: `Przekazanie zmiany → ${toShift}: ${summary}`,
       incidentId,
       mode: state.mode,
-    })
-    get().addAuditEntry(entry)
+    }).then(entry => get().addAuditEntry(entry))
     set(s => ({
       operationalEvents: pushOperationalEvent(
         s.operationalEvents,
@@ -311,14 +315,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         : r,
     )
 
-    const entry = logAction({
+    void logAction({
       operator,
       action: 'incident_resolve',
       details: `Zamknięto incydent: ${incident.title}. ${summary}`,
       incidentId,
       mode: state.mode,
-    })
-    get().addAuditEntry(entry)
+    }).then(entry => get().addAuditEntry(entry))
 
     for (const rec of resolvedRecs) {
       if (rec.incidentId === incidentId) void saveRecommendation(rec).catch(() => {})
@@ -392,14 +395,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    const entry = logAction({
+    void logAction({
       operator,
       action: 'scenario_abort',
       details: summary,
       incidentId: openIncident?.id,
       mode: state.mode,
-    })
-    get().addAuditEntry(entry)
+    }).then(entry => get().addAuditEntry(entry))
     get().resetObjectStatuses()
     set({
       cascadeResult: null,
@@ -427,16 +429,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       cascadeReplayIndex: result ? buildCascadeReplayFrames(result).length - 1 : 0,
     })
     if (result) {
-      const entry = logAction({
+      void logAction({
         operator: get().operator?.name ?? 'SYSTEM',
         action: 'cascade_generated',
         details: `Kaskada wygenerowana: ${result.affectedCount} węzłów, impact ${result.totalImpactScore.toFixed(1)}, hash ${result.deterministicSignature ?? 'n/a'}`,
         affectedObject: result.incidentObjectId,
         incidentId: get().activeIncidentId ?? undefined,
         mode: get().mode,
+      }).then(entry => {
+        set(s => ({ auditEntries: [entry, ...s.auditEntries] }))
+        void saveAuditEntry(entry).catch(() => {})
       })
-      set(s => ({ auditEntries: [entry, ...s.auditEntries] }))
-      void saveAuditEntry(entry).catch(() => {})
     }
   },
 
@@ -454,7 +457,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const operator = state.operator?.name ?? 'OPERATOR'
     const incident = state.incidents.find(i => i.id === rec.incidentId || i.id === state.activeIncidentId) ?? null
 
-    const approvalEntry = createApprovalAuditEntry({
+    const approvalEntry = await createApprovalAuditEntry({
       operator,
       recommendation: rec,
       action,
@@ -497,7 +500,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }
 
-    const execEntry = createExecutionAuditEntry({
+    const execEntry = await createExecutionAuditEntry({
       operator,
       details: outcome.auditDetails,
       incidentId: incident?.id,
@@ -587,23 +590,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get()
     const rec = state.recommendations.find(r => r.id === recId)
     if (!rec) return
-    const entry = logAction({
+    void logAction({
       operator: state.operator?.name ?? 'OPERATOR',
       action: 'recommendation_reject',
       details: `Odrzucono rekomendację: ${rec.summary}`,
       incidentId: rec.incidentId,
       mode: state.mode,
+    }).then(entry => {
+      const updated = {
+        ...rec,
+        actions: rec.actions.map(a => ({ ...a, executionState: 'reverted' as const, approved: false })),
+      }
+      set(s => ({
+        recommendations: s.recommendations.map(r => (r.id === recId ? updated : r)),
+        auditEntries: [entry, ...s.auditEntries],
+      }))
+      void saveRecommendation(updated).catch(() => {})
+      void saveAuditEntry(entry).catch(() => {})
     })
-    const updated = {
-      ...rec,
-      actions: rec.actions.map(a => ({ ...a, executionState: 'reverted' as const, approved: false })),
-    }
-    set(s => ({
-      recommendations: s.recommendations.map(r => (r.id === recId ? updated : r)),
-      auditEntries: [entry, ...s.auditEntries],
-    }))
-    void saveRecommendation(updated).catch(() => {})
-    void saveAuditEntry(entry).catch(() => {})
   },
 
   cascadeReplayFrames: [],
@@ -645,14 +649,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }))
 
-    const entry = logAction({
+    void logAction({
       operator: get().operator?.name ?? 'OPERATOR',
       action: 'containment_executed',
       details: `Containment: ${result.beforeAffectedCount}→${result.afterAffectedCount} węzłów, impact ${result.beforeImpact.toFixed(1)}→${result.afterImpact.toFixed(1)}, prevented: ${result.preventedNodeIds.join(', ') || 'none'}`,
       incidentId: incident?.id,
       mode: get().mode,
-    })
-    get().addAuditEntry(entry)
+    }).then(entry => get().addAuditEntry(entry))
     get().refreshNationalOverview()
     get().startCascadeReplay()
   },
@@ -682,6 +685,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     label: 'NOMINAL',
   },
   containmentRecovery: null,
+  threatSignals: [] as ThreatSignal[],
+  lastThreatScanAt: null as Date | null,
+  runThreatScan: async () => {
+    const state = get()
+    const signals = await scanThreats({
+      ikObjects: state.ikObjects,
+      cascadeResult: state.cascadeResult,
+      activeScenarioRun: state.activeScenarioRun,
+    })
+    const newAlerts: Alert[] = []
+    for (const sig of signals) {
+      if (sig.status === 'clear') continue
+      const alert = threatSignalToAlert(sig)
+      if (!alert) continue
+      const duplicate = state.alerts.some(
+        a => a.autoDetected && a.threatCategory === sig.category && a.status !== 'resolved',
+      )
+      if (!duplicate) newAlerts.push(alert)
+    }
+    set({
+      threatSignals: signals,
+      lastThreatScanAt: new Date(),
+      ...(newAlerts.length > 0 ? { alerts: [...newAlerts, ...state.alerts] } : {}),
+    })
+  },
   runOperationalHeartbeat: async () => {
     const state = get()
     const { pulse, events } = await probeOperationalPulse({
@@ -702,6 +730,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
       eventHeartbeatAt: new Date(),
     }))
+    await get().runThreatScan()
   },
   tickOperationalTelemetry: () => {
     const state = get()

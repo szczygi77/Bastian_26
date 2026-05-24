@@ -10,7 +10,10 @@ import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { canPerformAction, getRbacDeniedMessage } from '@/services/rbacService'
+import { useToast } from '@/components/ui/Toast'
 import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
+
 import type { ScenarioDefinition, ScenarioRun } from '@/types'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -29,6 +32,8 @@ export function ScenarioEngine() {
   const [cinematicStep, setCinematicStep] = useState<string | null>(null)
   const [selectedScenario, setSelectedScenario] = useState<ScenarioDefinition | null>(null)
   const [completedRun, setCompletedRun] = useState<ScenarioRun | null>(null)
+  const { toast } = useToast()
+  const canAbort = canPerformAction(operator?.clearanceLevel, 'abort_scenario')
 
   async function launchScenario(scenario: ScenarioDefinition) {
     setRunning(true)
@@ -46,13 +51,16 @@ export function ScenarioEngine() {
 
   function abortScenario() {
     if (!activeScenarioRun) return
-    const auditEntry = logAction({
+    if (!canAbort) {
+      toast({ title: getRbacDeniedMessage('abort_scenario', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
+    void logAction({
       operator: operator?.name ?? 'OPERATOR',
       action: 'scenario_abort',
       details: `Przerwano scenariusz: ${activeScenarioRun.scenarioId}`,
       mode,
-    })
-    addAuditEntry(auditEntry)
+    }).then(entry => addAuditEntry(entry))
     resetObjectStatuses()
     setCascadeResult(null)
     setActiveScenarioRun(null)
@@ -121,7 +129,7 @@ export function ScenarioEngine() {
               </div>
               <div className="flex gap-2">
                 {activeScenarioRun?.scenarioId === selectedScenario.id ? (
-                  <Button variant="danger" onClick={abortScenario}>
+                  <Button variant="danger" onClick={abortScenario} disabled={!canAbort}>
                     <Square size={12} /> ABORT
                   </Button>
                 ) : (

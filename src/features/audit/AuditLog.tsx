@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { FileText, Download, Filter, Search } from 'lucide-react'
+import { FileText, Download, Filter, Search, ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { exportAuditLog, exportSignedAuditJson } from '@/services/auditLogService'
+import { exportAuditLog, exportSignedAuditJson, verifyAuditChain, AUDIT_RETENTION_DAYS } from '@/services/auditLogService'
+import { canPerformAction, getRbacDeniedMessage } from '@/services/rbacService'
+import { useToast } from '@/components/ui/Toast'
 import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -37,10 +39,14 @@ const ACTION_LABELS: Record<AuditAction, string> = {
 }
 
 export function AuditLog() {
-  const { auditEntries } = useAppStore()
+  const { auditEntries, operator } = useAppStore()
+  const { toast } = useToast()
+  const canExport = canPerformAction(operator?.clearanceLevel, 'export_audit')
   const [filterSeverity, setFilterSeverity] = useState<string>('all')
   const [filterMode, setFilterMode] = useState<string>('all')
   const [searchText, setSearchText] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [chainStatus, setChainStatus] = useState<{ valid: boolean; checked: number } | null>(null)
 
   const filtered = auditEntries.filter(e => {
     if (filterSeverity !== 'all' && e.severity !== filterSeverity) return false
@@ -48,6 +54,14 @@ export function AuditLog() {
     if (searchText && !e.details.toLowerCase().includes(searchText.toLowerCase()) && !e.operator.toLowerCase().includes(searchText.toLowerCase())) return false
     return true
   })
+
+  function guardExport(fn: () => void) {
+    if (!canExport) {
+      toast({ title: getRbacDeniedMessage('export_audit', operator?.clearanceLevel), variant: 'destructive' })
+      return
+    }
+    fn()
+  }
 
   function handleExport(format: 'json' | 'csv') {
     const data = exportAuditLog(format)
@@ -60,8 +74,8 @@ export function AuditLog() {
     URL.revokeObjectURL(url)
   }
 
-  function handleSignedExport() {
-    const data = exportSignedAuditJson()
+  async function handleSignedExport() {
+    const data = await exportSignedAuditJson()
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -71,28 +85,56 @@ export function AuditLog() {
     URL.revokeObjectURL(url)
   }
 
+  async function handleVerifyChain() {
+    setVerifying(true)
+    try {
+      const result = await verifyAuditChain(auditEntries)
+      setChainStatus({ valid: result.valid, checked: result.checked })
+      toast({
+        title: result.valid ? 'Łańcuch audytu integralny' : 'Wykryto naruszenie łańcucha',
+        description: result.valid
+          ? `SHA-256 · ${result.checked} wpisów · head ${result.headHash.slice(0, 12)}…`
+          : `Uszkodzenie przy SEQ ${result.brokenAt ?? '?'}`,
+        variant: result.valid ? 'success' : 'destructive',
+      })
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   const severityColors = { info: 'text-[#94A3B8]', warning: 'text-[#F59E0B]', critical: 'text-[#EF4444]' }
 
   return (
     <PageShell fixed>
       <PageHeader
         title="Audit Log"
-        subtitle={`Immutable-style log · ${auditEntries.length} wpisów · Retencja 5 lat (wymóg KSC)`}
+        subtitle={`SHA-256 chain · ${auditEntries.length} wpisów · Retencja ${AUDIT_RETENTION_DAYS} dni (polityka aktywna)`}
         icon={FileText}
         actions={
           <>
-            <Button variant="glass" size="sm" onClick={() => handleExport('csv')}>
+            <Button variant="secondary" size="sm" loading={verifying} onClick={() => void handleVerifyChain()}>
+              <ShieldCheck size={11} /> Zweryfikuj integralność
+            </Button>
+            <Button variant="glass" size="sm" onClick={() => guardExport(() => handleExport('csv'))} disabled={!canExport}>
               <Download size={11} /> CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
+            <Button variant="outline" size="sm" onClick={() => guardExport(() => handleExport('json'))} disabled={!canExport}>
               <Download size={11} /> JSON
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleSignedExport}>
+            <Button variant="ghost" size="sm" onClick={() => guardExport(() => void handleSignedExport())} disabled={!canExport}>
               <Download size={11} /> Signed JSON
             </Button>
           </>
         }
       />
+
+      {chainStatus && (
+        <Card>
+          <div className="text-[11px] font-mono" style={{ color: chainStatus.valid ? '#22C55E' : '#EF4444' }}>
+            Weryfikacja łańcucha: {chainStatus.valid ? 'OK' : 'FAIL'} · {chainStatus.checked} wpisów · algorytm SHA-256
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="ui-filter-bar">
