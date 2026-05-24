@@ -16,7 +16,7 @@ import type { Alert as AlertType } from '@/types'
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
 
 export function AlertCenter() {
-  const { alerts, updateAlert, operator, mode, addAuditEntry, focusedIkObjectId, setFocusedIkObjectId } = useAppStore()
+  const { alerts, updateAlert, operator, mode, addAuditEntry, focusedIkObjectId, setFocusedIkObjectId, openIncidentCommand } = useAppStore()
   const { toast } = useToast()
   const [selected, setSelected] = useState<AlertType | null>(null)
   const [filterSeverity, setFilterSeverity] = useState<string>('all')
@@ -208,6 +208,11 @@ export function AlertCenter() {
             </Card>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+              {selected.severity === 'critical' && (
+                <Button variant="primary" size="sm" onClick={() => openIncidentCommand(selected.incidentId ?? null)}>
+                  <AlertTriangle size={12} /> Incident Command
+                </Button>
+              )}
               {selected.status === 'active' && (
                 <Button variant="success" size="sm" onClick={() => acknowledge(selected)}>
                   <Check size={12} /> Zatwierdź alert

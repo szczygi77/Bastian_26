@@ -323,6 +323,27 @@ export interface SyncStatus {
   dataAge: number              // minutes
 }
 
+export type PublicSourceStatus =
+  | 'live'
+  | 'cached'
+  | 'stale'
+  | 'offline'
+  | 'error'
+  | 'missing_key'
+  | 'mock'
+
+export interface PublicDataSourceStatus {
+  sourceName: string
+  sourceId: 'weather' | 'firms' | 'opensky' | 'osm' | 'sentinel'
+  status: PublicSourceStatus
+  lastSync: Date | null
+  latencyMs: number | null
+  recordsFetched: number | null
+  errorMessage?: string
+  cacheTtlMinutes?: number
+  authMethod?: string
+}
+
 // ─── Operator ────────────────────────────────────────────────────────────────
 
 export type OperatorRole = 'operator' | 'analyst' | 'commander' | 'admin' | 'auditor'

@@ -35,7 +35,7 @@ interface LayerControls {
   fires: boolean
 }
 
-export function TacticalMap() {
+export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean } = {}) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<L.Map | null>(null)
   const markersRef = useRef<L.Marker[]>([])
@@ -61,6 +61,7 @@ export function TacticalMap() {
     setFocusedIkObjectId,
     focusedDroneMissionId,
     setFocusedDroneMissionId,
+    incidentMapFilter,
   } = useAppStore()
   const boundsFittedRef = useRef(false)
 
@@ -131,9 +132,17 @@ export function TacticalMap() {
 
     if (!layers.ikObjects) return
 
-    const affectedIds = new Set(cascadeResult?.nodes.map(n => n.objectId) ?? [])
+    const filterSet = incidentMode && incidentMapFilter ? new Set(incidentMapFilter) : null
+    const visibleObjects = filterSet
+      ? ikObjects.filter(obj => filterSet.has(obj.id))
+      : ikObjects
 
-    for (const obj of ikObjects) {
+    const affectedIds = new Set(cascadeResult?.nodes.map(n => n.objectId) ?? [])
+    if (incidentMode && cascadeResult) {
+      affectedIds.add(cascadeResult.incidentObjectId)
+    }
+
+    for (const obj of visibleObjects) {
       const isAffected = affectedIds.has(obj.id)
       const cachedMedia = getCachedIkObjectMedia(obj.id)
       const marker = createIKMarker(obj, isAffected)
@@ -184,7 +193,7 @@ export function TacticalMap() {
         }
       }
     }
-  }, [ikObjects, cascadeResult, layers])
+  }, [ikObjects, cascadeResult, layers, incidentMode, incidentMapFilter])
 
   useEffect(() => {
     for (const obj of ikObjects) {

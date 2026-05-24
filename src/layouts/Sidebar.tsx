@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  LayoutDashboard, Map, GitBranch, Play, Bell, Cpu, Radio,
-  FileText, Shield, Activity, FileOutput, ChevronLeft, ChevronRight,
+  Map, GitBranch, Play, Bell, Cpu, Radio,
+  FileText, Shield, Activity, ChevronLeft, ChevronRight, Command,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -10,37 +10,37 @@ import { useElectronShell } from '@/hooks/useElectronShell'
 
 const NAV_GROUPS = [
   {
-    label: 'Operacyjne',
+    label: 'Core',
     items: [
-      { id: 'dashboard',  label: 'DASHBOARD',       icon: LayoutDashboard },
-      { id: 'map',        label: 'TACTICAL MAP',     icon: Map             },
-      { id: 'graph',      label: 'DEP. GRAPH',       icon: GitBranch       },
-      { id: 'scenarios',  label: 'SCENARIOS',        icon: Play            },
-      { id: 'alerts',     label: 'ALERT CENTER',     icon: Bell            },
+      { id: 'command', label: 'COMMAND', icon: Command },
+      { id: 'map', label: 'MAP', icon: Map },
+      { id: 'graph', label: 'GRAPH', icon: GitBranch },
+      { id: 'incidents', label: 'INCIDENTS', icon: Play },
+      { id: 'ai', label: 'DECISION SUPPORT', icon: Cpu },
     ],
   },
   {
-    label: 'Analityka',
+    label: 'Response',
     items: [
-      { id: 'ai',         label: 'DECISION SUPPORT', icon: Cpu             },
-      { id: 'skymarshal', label: 'SKYMARSHAL',        icon: Radio           },
+      { id: 'skymarshal', label: 'SKYMARSHAL', icon: Radio },
+      { id: 'alerts', label: 'ALERTS', icon: Bell },
     ],
   },
   {
-    label: 'Administracja',
+    label: 'Admin',
     items: [
-      { id: 'audit',      label: 'AUDIT LOG',        icon: FileText        },
-      { id: 'compliance', label: 'COMPLIANCE',       icon: Shield          },
-      { id: 'system',     label: 'SYSTEM STATUS',    icon: Activity        },
-      { id: 'reports',    label: 'REPORTS',          icon: FileOutput      },
+      { id: 'audit', label: 'AUDIT', icon: FileText },
+      { id: 'compliance', label: 'COMPLIANCE', icon: Shield },
+      { id: 'system', label: 'SYSTEM', icon: Activity },
     ],
   },
 ]
 
 export function Sidebar() {
-  const { activeView, setActiveView, sidebarExpanded, setSidebarExpanded, alerts } = useAppStore()
+  const { activeView, setActiveView, sidebarExpanded, setSidebarExpanded, alerts, incidents } = useAppStore()
   const { chromeHeaderHeight, sidebarCollapsedWidth } = useElectronShell()
   const activeAlerts = alerts.filter(a => a.status === 'active').length
+  const openIncidents = incidents.filter(i => i.status === 'open').length
 
   return (
     <motion.aside
@@ -133,7 +133,8 @@ export function Sidebar() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {group.items.map(({ id, label, icon: Icon }) => {
                 const isActive = activeView === id
-                const hasBadge = id === 'alerts' && activeAlerts > 0
+                const hasBadge = (id === 'alerts' && activeAlerts > 0) || (id === 'command' && openIncidents > 0)
+                const badgeCount = id === 'alerts' ? activeAlerts : openIncidents
 
                 return (
                   <button
@@ -201,7 +202,7 @@ export function Sidebar() {
                             padding: '0 3px',
                           }}
                         >
-                          {activeAlerts > 9 ? '9+' : activeAlerts}
+                          {badgeCount > 9 ? '9+' : badgeCount}
                         </span>
                       )}
                     </div>

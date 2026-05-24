@@ -11,6 +11,8 @@ import { ObjectCard } from '@/components/ui/ObjectCard'
 import { Alert } from '@/components/ui/Alert'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/Accordion'
+import { PublicDataStrip } from '@/components/dashboard/PublicDataStrip'
+import { Button } from '@/components/ui/Button'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
 import type { IKCategory, IKObject, ObjectStatus } from '@/types'
 
@@ -170,14 +172,24 @@ function ThreatGauge({ level }: { level: number }) {
 
 /* ── Main component ────────────────────────────────────────────────────────── */
 export function Dashboard() {
-  const { alerts, ikObjects, cascadeResult, systemHealth, refreshSystemHealth, drones, missions } = useAppStore()
+  const {
+    alerts, ikObjects, cascadeResult, systemHealth, refreshSystemHealth, drones, missions,
+    publicDataSources, refreshPublicDataSources, incidents, openIncidentCommand,
+    eventHeartbeatAt, pulseEventHeartbeat, auditEntries,
+  } = useAppStore()
   const [dashboardTab, setDashboardTab] = useState('overview')
 
   useEffect(() => {
     refreshSystemHealth()
-    const t = setInterval(refreshSystemHealth, 30000)
+    refreshPublicDataSources()
+    pulseEventHeartbeat()
+    const t = setInterval(() => {
+      refreshSystemHealth()
+      refreshPublicDataSources()
+      pulseEventHeartbeat()
+    }, 30000)
     return () => clearInterval(t)
-  }, [refreshSystemHealth])
+  }, [refreshSystemHealth, refreshPublicDataSources, pulseEventHeartbeat])
 
   const activeAlerts    = alerts.filter(a => a.status === 'active')
   const criticalAlerts  = activeAlerts.filter(a => a.severity === 'critical')
@@ -209,13 +221,37 @@ export function Dashboard() {
 
   const featuredObjects = buildFeaturedObjects(ikObjects)
 
+  const openIncident = incidents.find(i => i.status === 'open')
+
   return (
     <div className="page-content tactical-grid">
       <PageHeader
         title="Command Dashboard"
-        subtitle={`STALOWA WOLA · IK AWARENESS · ${ikObjects.length} OBIEKTÓW · ${new Date().toLocaleString('pl-PL', { hour12: false })}`}
+        subtitle={`STALOWA WOLA · IK AWARENESS · ${ikObjects.length} OBIEKTÓW · heartbeat ${eventHeartbeatAt.toLocaleTimeString('pl-PL', { hour12: false })}`}
         badge={<OnlineBadge online={systemHealth.online} />}
       />
+
+      <PublicDataStrip sources={publicDataSources} />
+
+      {openIncident && (
+        <div className="dashboard-incident-shortcut glass-panel ui-panel">
+          <div>
+            <strong>Aktywny incydent: {openIncident.title}</strong>
+            <span>{openIncident.affectedObjectIds.length} obiektów dotkniętych</span>
+          </div>
+          <Button variant="primary" size="sm" onClick={() => openIncidentCommand(openIncident.id)}>
+            Otwórz Incident Command
+          </Button>
+        </div>
+      )}
+
+      {auditEntries[0] && (
+        <div className="dashboard-event-heartbeat">
+          <span>LAST EVENT</span>
+          <strong>{auditEntries[0].action.replace(/_/g, ' ')}</strong>
+          <span>{auditEntries[0].details.slice(0, 120)}</span>
+        </div>
+      )}
 
       {topCriticalAlert && (
         <Alert

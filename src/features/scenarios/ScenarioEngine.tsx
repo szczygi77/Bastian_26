@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Play, Square, AlertTriangle, Clock, Zap, ShieldAlert, Flame, Waves, Crosshair, Target, WifiOff, Droplets } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { SCENARIOS } from '@/data/scenarios'
-import { runCascadeBFS, getImpactTimeline } from '@/services/cascadeEngine'
-import { createAlertFromCascade } from '@/services/alertEngine'
-import { generateRecommendation } from '@/services/recommendationEngine'
+import { getImpactTimeline } from '@/services/cascadeEngine'
+import { buildScenarioLaunchResult } from '@/services/scenarioEngine'
 import { logAction } from '@/services/auditLogService'
 import { generateId, formatDuration, severityColor } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -23,7 +22,7 @@ export function ScenarioEngine() {
     ikObjects, mode, operator,
     setActiveScenarioRun, setCascadeResult, activeScenarioRun,
     addAlerts, addRecommendation, updateObjectStatus, resetObjectStatuses,
-    addAuditEntry,
+    addAuditEntry, addIncident, openIncidentCommand, pulseEventHeartbeat,
   } = useAppStore()
 
   const [running, setRunning] = useState(false)
@@ -62,26 +61,28 @@ export function ScenarioEngine() {
 
     // Compute cascade (simulated delay for UX)
     await new Promise(r => setTimeout(r, 800))
-    const cascadeResult = runCascadeBFS(ikObjects, scenario.triggerObjectId)
-    setCascadeResult(cascadeResult)
 
-    // Generate alerts
-    const alerts = createAlertFromCascade(cascadeResult, scenario, ikObjects)
-    addAlerts(alerts)
+    const result = buildScenarioLaunchResult({
+      scenario,
+      objects: ikObjects,
+      operatorId: operator?.id ?? 'anonymous',
+      mode,
+      runId: run.id,
+    })
 
-    // Generate recommendation
-    const rec = generateRecommendation({ cascade: cascadeResult, scenario, objects: ikObjects })
-    addRecommendation(rec)
+    setCascadeResult(result.cascadeResult)
+    addAlerts(result.alerts)
+    addRecommendation(result.recommendation)
+    addIncident(result.incident)
 
     const completedRunData: ScenarioRun = {
-      ...run,
-      endedAt: new Date(),
-      status: 'completed',
-      cascadeResult,
-      generatedAlertIds: alerts.map(a => a.id),
+      ...result.run,
+      generatedAlertIds: result.alerts.map(a => a.id),
     }
     setActiveScenarioRun(completedRunData)
     setCompletedRun(completedRunData)
+    pulseEventHeartbeat()
+    openIncidentCommand(result.incident.id)
     setRunning(false)
   }
 

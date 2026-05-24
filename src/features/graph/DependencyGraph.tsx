@@ -29,12 +29,43 @@ const CATEGORY_ICONS: Record<string, string> = {
   military: '🛡', emergency: '🚨', government: '🏛', fuel: '⛽',
 }
 
-export function DependencyGraph() {
+export function DependencyGraph({
+  variant = 'page',
+  animateCascade = false,
+}: {
+  variant?: 'page' | 'incident'
+  animateCascade?: boolean
+} = {}) {
   const svgRef = useRef<SVGSVGElement>(null)
   const { ikObjects, cascadeResult, focusedIkObjectId, setFocusedIkObjectId } = useAppStore()
   const [selectedNode, setSelectedNode] = useState<IKObject | null>(null)
   const [simRunning, setSimRunning] = useState(false)
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set())
   const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null)
+
+  useEffect(() => {
+    if (!animateCascade || !cascadeResult) {
+      setRevealedIds(new Set(cascadeResult?.nodes.map(n => n.objectId) ?? []))
+      return
+    }
+
+    const root = cascadeResult.incidentObjectId
+    setRevealedIds(new Set([root]))
+
+    const ordered = [...cascadeResult.nodes].sort((a, b) => a.affectedAt - b.affectedAt)
+    let index = 0
+    const timer = window.setInterval(() => {
+      if (index >= ordered.length) {
+        window.clearInterval(timer)
+        return
+      }
+      const node = ordered[index]
+      index += 1
+      setRevealedIds(prev => new Set([...prev, node.objectId]))
+    }, 650)
+
+    return () => window.clearInterval(timer)
+  }, [animateCascade, cascadeResult])
 
   useEffect(() => {
     if (!focusedIkObjectId) return
@@ -51,8 +82,12 @@ export function DependencyGraph() {
     const width = svgRef.current.clientWidth || 800
     const height = svgRef.current.clientHeight || 600
 
-    const affectedIds = new Set(cascadeResult?.nodes.map(n => n.objectId) ?? [])
-    const affectedMap = new Map(cascadeResult?.nodes.map(n => [n.objectId, n]) ?? [])
+    const affectedIds = new Set(
+      cascadeResult?.nodes.filter(n => revealedIds.has(n.objectId)).map(n => n.objectId) ?? [],
+    )
+    const affectedMap = new Map(
+      cascadeResult?.nodes.filter(n => revealedIds.has(n.objectId)).map(n => [n.objectId, n]) ?? [],
+    )
 
     const nodes: D3Node[] = ikObjects.map(obj => ({
       id: obj.id,
@@ -162,10 +197,19 @@ export function DependencyGraph() {
       .append('text')
       .text(d => {
         const node = affectedMap.get(d.id)
-        return node ? `${node.affectedAt}min` : ''
+        return node ? `T+${node.affectedAt}` : ''
       })
       .attr('text-anchor', 'middle').attr('y', 42)
       .attr('fill', '#F59E0B').attr('font-size', '9px').attr('font-family', 'JetBrains Mono, monospace')
+
+    nodeGroup.filter(d => affectedMap.has(d.id))
+      .append('text')
+      .text(d => {
+        const node = affectedMap.get(d.id)
+        return node ? `${node.impactScore.toFixed(0)}` : ''
+      })
+      .attr('text-anchor', 'middle').attr('y', 54)
+      .attr('fill', '#EF4444').attr('font-size', '8px').attr('font-family', 'JetBrains Mono, monospace')
 
     simulation.on('tick', () => {
       link
@@ -180,9 +224,18 @@ export function DependencyGraph() {
     setSimRunning(true)
 
     return () => { simulation.stop() }
-  }, [ikObjects, cascadeResult])
+  }, [ikObjects, cascadeResult, revealedIds])
 
   const selectedIKObj = selectedNode ? ikObjects.find(o => o.id === selectedNode.id) : null
+  const isIncident = variant === 'incident'
+
+  if (isIncident) {
+    return (
+      <div className="graph-page graph-page--incident">
+        <svg ref={svgRef} className="graph-page__svg graph-page__svg--incident" />
+      </div>
+    )
+  }
 
   return (
     <div className="graph-page">

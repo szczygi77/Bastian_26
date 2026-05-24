@@ -15,13 +15,17 @@ import { AuditLog } from '@/features/audit/AuditLog'
 import { ComplianceCenter } from '@/features/compliance/ComplianceCenter'
 import { SystemStatus } from '@/features/system/SystemStatus'
 import { ReportGenerator } from '@/features/reports/ReportGenerator'
+import { IncidentCommandPage } from '@/features/incident-command/IncidentCommandPage'
 import { initDatabase, hydrateFromDatabase, flushSyncQueue } from '@/services/databaseService'
 import { setAuditLog } from '@/services/auditLogService'
 
 const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
+  command: IncidentCommandPage,
+  'incident-command': IncidentCommandPage,
   map: TacticalMap,
   graph: DependencyGraph,
+  incidents: ScenarioEngine,
   scenarios: ScenarioEngine,
   alerts: AlertCenter,
   ai: DecisionSupport,

@@ -18,6 +18,8 @@ import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
 import { refreshPublicDataLayer } from '@/services/dataSyncService'
 import { getSystemHealth, buildSystemHealth } from '@/services/systemHealthService'
+import { getPublicDataSources } from '@/services/publicDataStatusService'
+import type { PublicDataSourceStatus } from '@/types'
 import { resolveIkLocations, syncDroneCoordinates } from '@/services/ikLocationService'
 import { tickMissionState } from '@/services/missionSimulation'
 import {
@@ -64,6 +66,7 @@ interface AppState {
   // Incidents
   incidents: Incident[]
   addIncident: (incident: Incident) => void
+  updateIncident: (id: string, patch: Partial<Incident>) => void
 
   // Scenario
   activeScenarioRun: ScenarioRun | null
@@ -97,6 +100,15 @@ interface AppState {
   setSidebarExpanded: (val: boolean) => void
   activeView: string
   setActiveView: (view: string) => void
+  activeIncidentId: string | null
+  setActiveIncidentId: (id: string | null) => void
+  openIncidentCommand: (incidentId?: string | null) => void
+  incidentMapFilter: string[] | null
+  setIncidentMapFilter: (ids: string[] | null) => void
+  publicDataSources: PublicDataSourceStatus[]
+  refreshPublicDataSources: () => void
+  eventHeartbeatAt: Date
+  pulseEventHeartbeat: () => void
   focusedIkObjectId: string | null
   setFocusedIkObjectId: (id: string | null) => void
   openIkObjectOnMap: (id: string) => void
@@ -193,6 +205,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   addIncident: (incident) => {
     set(state => ({ incidents: [incident, ...state.incidents] }))
     void saveIncident(incident).catch(() => {})
+  },
+  updateIncident: (id, patch) => {
+    set(state => {
+      const incidents = state.incidents.map(i => (i.id === id ? { ...i, ...patch } : i))
+      const updated = incidents.find(i => i.id === id)
+      if (updated) void saveIncident(updated).catch(() => {})
+      return { incidents }
+    })
   },
 
   activeScenarioRun: null,
@@ -305,6 +325,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           satelliteCacheAge: sync.satelliteCacheAge,
           lastSync: new Date(),
         },
+        publicDataSources: getPublicDataSources(state.online),
       })
     } catch {
       set({ systemHealth: base })
@@ -315,12 +336,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarExpanded: (val) => set({ sidebarExpanded: val }),
   activeView: 'dashboard',
   setActiveView: (view) => set({ activeView: view }),
+  activeIncidentId: null,
+  setActiveIncidentId: (id) => set({ activeIncidentId: id }),
+  openIncidentCommand: (incidentId) => {
+    const state = get()
+    const id = incidentId ?? state.activeIncidentId ?? state.incidents.find(i => i.status === 'open')?.id ?? null
+    const incident = id ? state.incidents.find(i => i.id === id) : null
+    set({
+      activeIncidentId: id,
+      activeView: 'incident-command',
+      incidentMapFilter: incident?.affectedObjectIds ?? state.cascadeResult
+        ? [state.cascadeResult!.incidentObjectId, ...state.cascadeResult!.nodes.map(n => n.objectId)]
+        : null,
+      cascadeResult: state.cascadeResult,
+    })
+  },
+  incidentMapFilter: null,
+  setIncidentMapFilter: (ids) => set({ incidentMapFilter: ids }),
+  publicDataSources: getPublicDataSources(navigator.onLine),
+  refreshPublicDataSources: () => set({ publicDataSources: getPublicDataSources(get().online) }),
+  eventHeartbeatAt: new Date(),
+  pulseEventHeartbeat: () => set({ eventHeartbeatAt: new Date() }),
   focusedIkObjectId: null,
   setFocusedIkObjectId: (id) => set({ focusedIkObjectId: id }),
   openIkObjectOnMap: (id) => set({ focusedIkObjectId: id, activeView: 'map' }),
   openIkObjectOnGraph: (id) => set({ focusedIkObjectId: id, activeView: 'graph' }),
   openIkObjectAlerts: (id) => set({ focusedIkObjectId: id, activeView: 'alerts' }),
-  openScenarios: () => set({ activeView: 'scenarios' }),
+  openScenarios: () => set({ activeView: 'incidents' }),
   focusedDroneMissionId: null,
   setFocusedDroneMissionId: (id) => set({ focusedDroneMissionId: id }),
   openDroneMissionOnMap: (missionId) => set({ focusedDroneMissionId: missionId, activeView: 'map' }),
