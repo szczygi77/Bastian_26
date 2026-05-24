@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { useAppStore } from '@/store/useAppStore'
 import { buildGraph } from '@/services/graphEngine'
+import { explainNodeImpact, getRootCausePath } from '@/services/cascadeSimulationService'
 import { statusColor, criticalityLabel } from '@/utils/format'
 import { Card } from '@/components/ui/Card'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
+import { GraphSimulationBar } from '@/features/graph/GraphSimulationBar'
 import type { IKObject } from '@/types'
 
 interface D3Node extends d3.SimulationNodeDatum {
@@ -37,7 +39,10 @@ export function DependencyGraph({
   animateCascade?: boolean
 } = {}) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const { ikObjects, cascadeResult, focusedIkObjectId, setFocusedIkObjectId } = useAppStore()
+  const {
+    ikObjects, cascadeResult, focusedIkObjectId, setFocusedIkObjectId,
+    cascadeReplayFrames, cascadeReplayIndex, setSelectedNodeForContainment,
+  } = useAppStore()
   const [selectedNode, setSelectedNode] = useState<IKObject | null>(null)
   const [simRunning, setSimRunning] = useState(false)
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set())
@@ -45,7 +50,20 @@ export function DependencyGraph({
 
   useEffect(() => {
     if (!animateCascade || !cascadeResult) {
+      if (cascadeReplayFrames.length > 0) {
+        const frame = cascadeReplayFrames[cascadeReplayIndex]
+        if (frame) {
+          setRevealedIds(new Set(frame.revealedNodeIds))
+          return
+        }
+      }
       setRevealedIds(new Set(cascadeResult?.nodes.map(n => n.objectId) ?? []))
+      return
+    }
+
+    const frame = cascadeReplayFrames[cascadeReplayIndex]
+    if (frame) {
+      setRevealedIds(new Set(frame.revealedNodeIds))
       return
     }
 
@@ -65,7 +83,7 @@ export function DependencyGraph({
     }, 650)
 
     return () => window.clearInterval(timer)
-  }, [animateCascade, cascadeResult])
+  }, [animateCascade, cascadeResult, cascadeReplayFrames, cascadeReplayIndex])
 
   useEffect(() => {
     if (!focusedIkObjectId) return
@@ -156,6 +174,7 @@ export function DependencyGraph({
       .on('click', (_, d) => {
         const obj = ikObjects.find(o => o.id === d.id)
         setSelectedNode(obj ?? null)
+        if (cascadeResult) setSelectedNodeForContainment(d.id)
       })
       .call(
         d3.drag<SVGGElement, D3Node>()
@@ -232,13 +251,19 @@ export function DependencyGraph({
   if (isIncident) {
     return (
       <div className="graph-page graph-page--incident">
+        <GraphSimulationBar compact />
         <svg ref={svgRef} className="graph-page__svg graph-page__svg--incident" />
       </div>
     )
   }
 
+  const nodeExplanation = selectedIKObj
+    ? explainNodeImpact(ikObjects, cascadeResult, selectedIKObj.id)
+    : null
+
   return (
     <div className="graph-page">
+      <GraphSimulationBar />
       <div className="graph-page__canvas">
         <div className="graph-page__toolbar glass-panel ui-panel">
           <div className="ui-filter-bar" style={{ gap: 12 }}>
@@ -342,6 +367,23 @@ export function DependencyGraph({
                     </div>
                   )
                 })()}
+              </Card>
+            )}
+
+            {nodeExplanation && (
+              <Card label="IMPACT EXPLANATION" accent="cyan">
+                <p className="graph-page__meta-value" style={{ lineHeight: 1.5, marginBottom: 10 }}>{nodeExplanation.whyImpacted}</p>
+                {cascadeResult && (
+                  <div className="ui-panel" style={{ padding: '10px 12px', marginBottom: 8 }}>
+                    <div className="graph-page__meta-label">Root cause path</div>
+                    <div className="graph-page__meta-value">{getRootCausePath(cascadeResult, selectedIKObj.id).join(' → ')}</div>
+                  </div>
+                )}
+                {nodeExplanation.downstream.length > 0 && (
+                  <div className="text-[10px] font-mono text-[#94A3B8]">
+                    Downstream: {nodeExplanation.downstream.join(', ')}
+                  </div>
+                )}
               </Card>
             )}
 

@@ -12,6 +12,7 @@ import { Alert } from '@/components/ui/Alert'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/Accordion'
 import { PublicDataStrip } from '@/components/dashboard/PublicDataStrip'
+import { OperationalHeartbeatStrip } from '@/components/dashboard/OperationalHeartbeatStrip'
 import { Button } from '@/components/ui/Button'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
 import type { IKCategory, IKObject, ObjectStatus } from '@/types'
@@ -176,6 +177,7 @@ export function Dashboard() {
     alerts, ikObjects, cascadeResult, systemHealth, refreshSystemHealth, drones, missions,
     publicDataSources, refreshPublicDataSources, incidents, openIncidentCommand,
     eventHeartbeatAt, pulseEventHeartbeat, auditEntries,
+    operationalPulse, operationalEvents, runOperationalHeartbeat,
   } = useAppStore()
   const [dashboardTab, setDashboardTab] = useState('overview')
 
@@ -183,13 +185,14 @@ export function Dashboard() {
     refreshSystemHealth()
     refreshPublicDataSources()
     pulseEventHeartbeat()
+    void runOperationalHeartbeat()
     const t = setInterval(() => {
       refreshSystemHealth()
       refreshPublicDataSources()
-      pulseEventHeartbeat()
+      void runOperationalHeartbeat()
     }, 30000)
     return () => clearInterval(t)
-  }, [refreshSystemHealth, refreshPublicDataSources, pulseEventHeartbeat])
+  }, [refreshSystemHealth, refreshPublicDataSources, pulseEventHeartbeat, runOperationalHeartbeat])
 
   const activeAlerts    = alerts.filter(a => a.status === 'active')
   const criticalAlerts  = activeAlerts.filter(a => a.severity === 'critical')
@@ -232,6 +235,7 @@ export function Dashboard() {
       />
 
       <PublicDataStrip sources={publicDataSources} />
+      <OperationalHeartbeatStrip pulse={operationalPulse} events={operationalEvents} />
 
       {openIncident && (
         <div className="dashboard-incident-shortcut glass-panel ui-panel">

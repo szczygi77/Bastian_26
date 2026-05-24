@@ -3,10 +3,14 @@ import type {
   Alert,
   AuditEntry,
   CascadeResult,
+  ContainmentSimulationResult,
   DroneMission,
   DroneUnit,
   IKObject,
   Incident,
+  NationalRegionSummary,
+  OperationalEvent,
+  OperationalPulse,
   Operator,
   Recommendation,
   ScenarioRun,
@@ -22,6 +26,20 @@ import { getPublicDataSources } from '@/services/publicDataStatusService'
 import type { PublicDataSourceStatus } from '@/types'
 import { resolveIkLocations, syncDroneCoordinates } from '@/services/ikLocationService'
 import { tickMissionState } from '@/services/missionSimulation'
+import {
+  probeOperationalPulse,
+  pushOperationalEvent,
+  createOperationalEvent,
+} from '@/services/operationalHeartbeatService'
+import {
+  buildExecutionOutcome,
+  createApprovalAuditEntry,
+  createExecutionAuditEntry,
+  markActionState,
+} from '@/services/executionPipelineService'
+import { simulateContainment, buildCascadeReplayFrames } from '@/services/cascadeSimulationService'
+import type { CascadeReplayFrame } from '@/types'
+import { buildNationalOverview } from '@/services/nationalOverviewService'
 import {
   applyIkStates,
   saveAlert,
@@ -77,7 +95,29 @@ interface AppState {
   // Recommendations
   recommendations: Recommendation[]
   addRecommendation: (rec: Recommendation) => void
-  approveAction: (recId: string, actionId: string) => void
+  approveAction: (recId: string, actionId: string) => Promise<void>
+  rejectAction: (recId: string) => void
+
+  // Cascade simulation
+  cascadeReplayFrames: CascadeReplayFrame[]
+  cascadeReplayIndex: number
+  setCascadeReplayIndex: (index: number) => void
+  startCascadeReplay: () => void
+  containmentResult: ContainmentSimulationResult | null
+  simulateContainmentAt: (nodeIds: string[]) => void
+  clearContainment: () => void
+  activeCascadeView: CascadeResult | null
+  selectedNodeForContainment: string | null
+  setSelectedNodeForContainment: (id: string | null) => void
+
+  // Operational heartbeat
+  operationalEvents: OperationalEvent[]
+  operationalPulse: OperationalPulse | null
+  runOperationalHeartbeat: () => Promise<void>
+
+  // National overview
+  nationalRegions: NationalRegionSummary[]
+  refreshNationalOverview: () => void
 
   // Drones
   drones: DroneUnit[]
@@ -221,21 +261,220 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (run) void saveScenarioRun(run).catch(() => {})
   },
   cascadeResult: null,
-  setCascadeResult: (result) => set({ cascadeResult: result }),
+  setCascadeResult: (result) => set({
+    cascadeResult: result,
+    activeCascadeView: result,
+    cascadeReplayFrames: result ? buildCascadeReplayFrames(result) : [],
+    cascadeReplayIndex: result ? buildCascadeReplayFrames(result).length - 1 : 0,
+  }),
 
   recommendations: [],
   addRecommendation: (rec) => {
     set(state => ({ recommendations: [rec, ...state.recommendations] }))
     void saveRecommendation(rec).catch(() => {})
   },
-  approveAction: (recId, actionId) =>
-    set(state => ({
-      recommendations: state.recommendations.map(r =>
-        r.id === recId
-          ? { ...r, actions: r.actions.map(a => (a.id === actionId ? { ...a, approved: true } : a)) }
-          : r
+  approveAction: async (recId, actionId) => {
+    const state = get()
+    const rec = state.recommendations.find(r => r.id === recId)
+    const action = rec?.actions.find(a => a.id === actionId)
+    if (!rec || !action) return
+
+    const operator = state.operator?.name ?? 'OPERATOR'
+    const incident = state.incidents.find(i => i.id === rec.incidentId || i.id === state.activeIncidentId) ?? null
+
+    const approvalEntry = createApprovalAuditEntry({
+      operator,
+      recommendation: rec,
+      action,
+      incidentId: incident?.id,
+      mode: state.mode,
+    })
+
+    const queuedRec = {
+      ...rec,
+      actions: rec.actions.map(a =>
+        a.id === actionId ? markActionState(a, 'queued', operator) : a,
       ),
-    })),
+      approvedBy: operator,
+      approvedAt: new Date(),
+    }
+
+    set(s => ({
+      recommendations: s.recommendations.map(r => (r.id === recId ? queuedRec : r)),
+      auditEntries: [approvalEntry, ...s.auditEntries],
+    }))
+    void saveRecommendation(queuedRec).catch(() => {})
+    void saveAuditEntry(approvalEntry).catch(() => {})
+
+    const outcome = await buildExecutionOutcome({
+      recommendation: rec,
+      action,
+      incident,
+      ikObjects: state.ikObjects,
+      cascadeResult: state.cascadeResult,
+      operator,
+      mode: state.mode,
+    })
+
+    const executedRec = {
+      ...queuedRec,
+      actions: queuedRec.actions.map(a =>
+        a.id === actionId
+          ? markActionState(a, outcome.execution.state === 'executed' ? 'executed' : 'failed', operator)
+          : a,
+      ),
+    }
+
+    const execEntry = createExecutionAuditEntry({
+      operator,
+      details: outcome.auditDetails,
+      incidentId: incident?.id,
+      mode: state.mode,
+    })
+
+    set(s => {
+      let ikObjects = s.ikObjects
+      for (const upd of outcome.objectStatusUpdates) {
+        ikObjects = ikObjects.map(o => (o.id === upd.id ? { ...o, status: upd.status } : o))
+        const updated = ikObjects.find(o => o.id === upd.id)
+        if (updated) void saveIkObjectState({ id: updated.id, status: updated.status, coordinates: updated.coordinates }).catch(() => {})
+      }
+
+      let incidents = s.incidents
+      if (incident && outcome.incidentPatch) {
+        incidents = incidents.map(i => (i.id === incident.id ? { ...i, ...outcome.incidentPatch! } : i))
+        const updated = incidents.find(i => i.id === incident.id)
+        if (updated) void saveIncident(updated).catch(() => {})
+      }
+
+      const cascadeResult = outcome.cascadeResult ?? s.cascadeResult
+      const replayFrames = cascadeResult ? buildCascadeReplayFrames(cascadeResult) : s.cascadeReplayFrames
+
+      return {
+        recommendations: s.recommendations.map(r => (r.id === recId ? executedRec : r)),
+        auditEntries: [execEntry, ...s.auditEntries],
+        ikObjects,
+        incidents,
+        cascadeResult,
+        cascadeReplayFrames: replayFrames,
+        cascadeReplayIndex: replayFrames.length > 0 ? replayFrames.length - 1 : 0,
+        activeCascadeView: cascadeResult,
+        operationalEvents: pushOperationalEvent(
+          s.operationalEvents,
+          createOperationalEvent('action_executed', outcome.auditDetails, outcome.execution.state === 'executed' ? 'info' : 'warning'),
+        ),
+      }
+    })
+
+    void saveRecommendation(executedRec).catch(() => {})
+    void saveAuditEntry(execEntry).catch(() => {})
+    get().pulseEventHeartbeat()
+  },
+
+  rejectAction: (recId) => {
+    const state = get()
+    const rec = state.recommendations.find(r => r.id === recId)
+    if (!rec) return
+    const entry = logAction({
+      operator: state.operator?.name ?? 'OPERATOR',
+      action: 'recommendation_reject',
+      details: `Odrzucono rekomendację: ${rec.summary}`,
+      incidentId: rec.incidentId,
+      mode: state.mode,
+    })
+    const updated = {
+      ...rec,
+      actions: rec.actions.map(a => ({ ...a, executionState: 'reverted' as const, approved: false })),
+    }
+    set(s => ({
+      recommendations: s.recommendations.map(r => (r.id === recId ? updated : r)),
+      auditEntries: [entry, ...s.auditEntries],
+    }))
+    void saveRecommendation(updated).catch(() => {})
+    void saveAuditEntry(entry).catch(() => {})
+  },
+
+  cascadeReplayFrames: [],
+  cascadeReplayIndex: 0,
+  setCascadeReplayIndex: (index) => set({ cascadeReplayIndex: index }),
+  startCascadeReplay: () => {
+    const { cascadeResult } = get()
+    if (!cascadeResult) return
+    const frames = buildCascadeReplayFrames(cascadeResult)
+    set({ cascadeReplayFrames: frames, cascadeReplayIndex: 0, activeCascadeView: cascadeResult })
+  },
+  containmentResult: null,
+  simulateContainmentAt: (nodeIds) => {
+    const { ikObjects, cascadeResult } = get()
+    if (!cascadeResult || nodeIds.length === 0) return
+    const result = simulateContainment(ikObjects, cascadeResult, nodeIds)
+    set({
+      containmentResult: result,
+      cascadeResult: result.contained,
+      activeCascadeView: result.contained,
+      cascadeReplayFrames: buildCascadeReplayFrames(result.contained),
+      cascadeReplayIndex: buildCascadeReplayFrames(result.contained).length - 1,
+      operationalEvents: pushOperationalEvent(
+        get().operationalEvents,
+        createOperationalEvent(
+          'containment_applied',
+          `Containment ${nodeIds.join(', ')} · -${result.impactReduction.toFixed(1)} impact · ${result.preventedNodeIds.length} węzłów powstrzymanych`,
+          'info',
+        ),
+      ),
+    })
+    const entry = logAction({
+      operator: get().operator?.name ?? 'OPERATOR',
+      action: 'scenario_start',
+      details: `Symulacja containment: ${nodeIds.join(', ')}`,
+      mode: get().mode,
+    })
+    get().addAuditEntry(entry)
+  },
+  clearContainment: () => {
+    const { containmentResult } = get()
+    if (!containmentResult) return
+    set({
+      containmentResult: null,
+      cascadeResult: containmentResult.baseline,
+      activeCascadeView: containmentResult.baseline,
+      cascadeReplayFrames: buildCascadeReplayFrames(containmentResult.baseline),
+    })
+  },
+  activeCascadeView: null,
+  selectedNodeForContainment: null,
+  setSelectedNodeForContainment: (id) => set({ selectedNodeForContainment: id }),
+
+  operationalEvents: [],
+  operationalPulse: null,
+  runOperationalHeartbeat: async () => {
+    const state = get()
+    const { pulse, events } = await probeOperationalPulse({
+      publicDataSources: state.publicDataSources,
+      cascadeResult: state.cascadeResult,
+      online: state.online,
+    })
+    set(s => ({
+      operationalPulse: pulse,
+      operationalEvents: events.reduce(
+        (acc, ev) => pushOperationalEvent(acc, ev),
+        s.operationalEvents,
+      ),
+      eventHeartbeatAt: new Date(),
+    }))
+  },
+
+  nationalRegions: [],
+  refreshNationalOverview: () => {
+    const state = get()
+    set({
+      nationalRegions: buildNationalOverview({
+        ikObjects: state.ikObjects,
+        incidents: state.incidents,
+        publicDataSources: state.publicDataSources,
+      }),
+    })
+  },
 
   drones: DRONE_FLEET,
   updateDrone: (id, patch) =>
@@ -354,7 +593,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   incidentMapFilter: null,
   setIncidentMapFilter: (ids) => set({ incidentMapFilter: ids }),
   publicDataSources: getPublicDataSources(navigator.onLine),
-  refreshPublicDataSources: () => set({ publicDataSources: getPublicDataSources(get().online) }),
+  refreshPublicDataSources: () => {
+    set({ publicDataSources: getPublicDataSources(get().online) })
+    get().refreshNationalOverview()
+  },
   eventHeartbeatAt: new Date(),
   pulseEventHeartbeat: () => set({ eventHeartbeatAt: new Date() }),
   focusedIkObjectId: null,

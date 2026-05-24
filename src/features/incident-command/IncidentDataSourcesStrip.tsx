@@ -10,6 +10,7 @@ const STATUS_VARIANT: Record<PublicDataSourceStatus['status'], 'green' | 'cyan' 
   error: 'danger',
   missing_key: 'orange',
   mock: 'muted',
+  degraded: 'orange',
 }
 
 export function IncidentDataSourcesStrip({
@@ -27,6 +28,7 @@ export function IncidentDataSourcesStrip({
           <div key={source.sourceId} className="icm-strip__source" title={source.errorMessage}>
             <span>{source.sourceName}</span>
             <Badge variant={STATUS_VARIANT[source.status]}>{source.status.toUpperCase()}</Badge>
+            <span className="icm-strip__trust">T{source.trustScore}</span>
             {source.lastSync && (
               <span className="icm-strip__sync">{formatTimeAgo(source.lastSync)}</span>
             )}

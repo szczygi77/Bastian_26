@@ -52,8 +52,8 @@ export function IncidentDecisionPanel({
                     <p>{action.responsible} · {action.timeframe}</p>
                   </div>
                   <div className="icm-decision__action-btns">
-                    <Button size="sm" variant="primary" onClick={() => onApprove(rec.id, action.id)}>
-                      <Check size={12} /> Approve
+                    <Button size="sm" variant="primary" onClick={() => onApprove(rec.id, action.id)} disabled={action.executionState === 'executed'}>
+                      <Check size={12} /> {action.executionState === 'executed' ? 'Executed' : 'Approve'}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => onReject(rec.id)}>
                       <X size={12} /> Reject

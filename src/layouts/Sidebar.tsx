@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Map, GitBranch, Play, Bell, Cpu, Radio,
-  FileText, Shield, Activity, ChevronLeft, ChevronRight, Command,
+  FileText, Shield, Activity, ChevronLeft, ChevronRight, Command, Globe,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -13,6 +13,7 @@ const NAV_GROUPS = [
     label: 'Core',
     items: [
       { id: 'command', label: 'COMMAND', icon: Command },
+      { id: 'national', label: 'NATIONAL', icon: Globe },
       { id: 'map', label: 'MAP', icon: Map },
       { id: 'graph', label: 'GRAPH', icon: GitBranch },
       { id: 'incidents', label: 'INCIDENTS', icon: Play },

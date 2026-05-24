@@ -5,6 +5,7 @@ import { getSentinelSyncStatus } from '@/adapters/sentinelAdapter'
 import { getCachedIkCoordinateCount, getOsmSyncStatus } from '@/adapters/osmAdapter'
 import { envConfig, hasCdseCredentials, hasOpenSkyAuth } from '@/config/env'
 import { IK_GEOCODE_SPECS } from '@/data/ikGeocoding'
+import { enrichAllSourceTrust } from '@/services/sourceTrustService'
 import type { PublicDataSourceStatus, PublicSourceStatus } from '@/types'
 import type { AdapterFetchMode } from '@/adapters/adapterState'
 
@@ -34,7 +35,7 @@ function buildSource(
   recordsFetched: number | null,
   authMethod?: string,
   errorMessage?: string,
-): PublicDataSourceStatus {
+): Omit<PublicDataSourceStatus, 'trustScore' | 'staleDurationMinutes' | 'fallbackMode'> {
   return {
     sourceName,
     sourceId,
@@ -71,7 +72,7 @@ export function getPublicDataSources(online: boolean): PublicDataSourceStatus[] 
         ? resolveAgeStatus(sentinel.dataAge, online)
         : 'error'
 
-  return [
+  return enrichAllSourceTrust([
     buildSource(
       'Open-Meteo',
       'weather',
@@ -111,7 +112,7 @@ export function getPublicDataSources(online: boolean): PublicDataSourceStatus[] 
       hasCdseCredentials() ? 'OAuth2 client' : undefined,
       sentinelStatus === 'missing_key' ? 'VITE_CDSE_CLIENT_ID/SECRET not configured' : undefined,
     ),
-  ]
+  ])
 }
 
 export function countLiveSources(sources: PublicDataSourceStatus[]): number {

@@ -61,6 +61,98 @@ export interface CascadeResult {
   computedAt: Date
 }
 
+export interface CascadeReplayFrame {
+  timeMinutes: number
+  revealedNodeIds: string[]
+  label: string
+}
+
+export interface ContainmentSimulationResult {
+  containedNodeIds: string[]
+  baseline: CascadeResult
+  contained: CascadeResult
+  preventedNodeIds: string[]
+  impactReduction: number
+  timeSavedMinutes: number
+  residualRisk: number
+}
+
+export interface NodeImpactExplanation {
+  objectId: string
+  name: string
+  shortName: string
+  parents: string[]
+  downstream: string[]
+  whyImpacted: string
+  criticality: number
+  propagationDelayMinutes: number
+  recoveryDependencies: string[]
+  cascadeNode?: CascadeNode
+}
+
+export type OperationalEventType =
+  | 'source_refresh'
+  | 'cache_validation'
+  | 'stale_detected'
+  | 'telemetry_pulse'
+  | 'graph_verification'
+  | 'sync_queue_check'
+  | 'integrity_check'
+  | 'propagation_pressure'
+  | 'connectivity_probe'
+  | 'action_executed'
+  | 'containment_applied'
+
+export interface OperationalEvent {
+  id: string
+  type: OperationalEventType
+  message: string
+  severity: 'info' | 'warning' | 'critical'
+  timestamp: Date
+}
+
+export interface OperationalPulse {
+  syncQueuePressure: number
+  propagationPressure: number
+  sourceFreshnessAvg: number
+  integrityOk: boolean
+  lastProbeAt: Date
+}
+
+export type ActionExecutionState =
+  | 'pending'
+  | 'approved'
+  | 'queued'
+  | 'executing'
+  | 'executed'
+  | 'failed'
+  | 'reverted'
+
+export interface ActionExecution {
+  id: string
+  recommendationId: string
+  actionId: string
+  incidentId?: string
+  state: ActionExecutionState
+  queuedAt?: Date
+  executedAt?: Date
+  error?: string
+  operator?: string
+}
+
+export interface NationalRegionSummary {
+  id: string
+  name: string
+  sector: string
+  incidentCount: number
+  openIncidents: number
+  ikObjects: number
+  degradedObjects: number
+  trustScoreAvg: number
+  threatLevel: number
+  isLiveRegion: boolean
+}
+
 // ─── Scenarios ──────────────────────────────────────────────────────────────
 
 export type ScenarioType =
@@ -334,6 +426,7 @@ export type PublicSourceStatus =
   | 'error'
   | 'missing_key'
   | 'mock'
+  | 'degraded'
 
 export interface PublicDataSourceStatus {
   sourceName: string
@@ -345,6 +438,9 @@ export interface PublicDataSourceStatus {
   errorMessage?: string
   cacheTtlMinutes?: number
   authMethod?: string
+  trustScore: number
+  staleDurationMinutes: number
+  fallbackMode: 'none' | 'cache' | 'offline' | 'mock' | 'degraded'
 }
 
 // ─── Operator ────────────────────────────────────────────────────────────────
@@ -445,4 +541,8 @@ export interface RecommendationAction {
   responsible: string
   timeframe: string
   approved: boolean
+  executionState?: ActionExecutionState
+  approvedBy?: string
+  approvedAt?: Date
+  executedAt?: Date
 }

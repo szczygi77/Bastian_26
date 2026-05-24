@@ -29,6 +29,7 @@ export function IncidentCommandPage() {
     addMission,
     updateDrone,
     approveAction,
+    rejectAction,
     addAuditEntry,
     addIncident,
     updateIncident,
@@ -60,28 +61,13 @@ export function IncidentCommandPage() {
   )
 
   function handleApprove(recId: string, actionId: string) {
-    approveAction(recId, actionId)
-    const entry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'recommendation_approve',
-      details: `Zatwierdzono rekomendację ${recId} / akcja ${actionId}`,
-      incidentId: incident?.id,
-      mode,
-    })
-    addAuditEntry(entry)
+    void approveAction(recId, actionId)
     pulseEventHeartbeat()
-    toast({ title: 'Rekomendacja zatwierdzona', variant: 'success' })
+    toast({ title: 'Akcja zatwierdzona i wykonana', variant: 'success' })
   }
 
   function handleReject(recId: string) {
-    const entry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'recommendation_reject',
-      details: `Odrzucono rekomendację ${recId}`,
-      incidentId: incident?.id,
-      mode,
-    })
-    addAuditEntry(entry)
+    rejectAction(recId)
     pulseEventHeartbeat()
     toast({ title: 'Rekomendacja odrzucona', variant: 'warning' })
   }

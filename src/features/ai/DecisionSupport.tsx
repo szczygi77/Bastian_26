@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Brain, CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { logAction } from '@/services/auditLogService'
 import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
@@ -11,44 +10,24 @@ import { PageShell } from '@/components/layout/PageShell'
 import type { Recommendation } from '@/types'
 
 export function DecisionSupport() {
-  const { recommendations, approveAction, operator, mode, addAuditEntry } = useAppStore()
+  const { recommendations, approveAction, rejectAction, operator, mode } = useAppStore()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [approvedRecs, setApprovedRecs] = useState<Set<string>>(new Set())
 
   function handleApproveAction(rec: Recommendation, actionId: string) {
-    approveAction(rec.id, actionId)
-    const entry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'recommendation_approve',
-      details: `Zatwierdzono rekomendację [${rec.id}] akcja [${actionId}]: ${rec.actions.find(a => a.id === actionId)?.description ?? ''}`,
-      mode,
-    })
-    addAuditEntry(entry)
+    void approveAction(rec.id, actionId)
   }
 
   function handleApproveAll(rec: Recommendation) {
     for (const action of rec.actions) {
-      approveAction(rec.id, action.id)
+      if (!action.approved) void approveAction(rec.id, action.id)
     }
     setApprovedRecs(prev => new Set([...prev, rec.id]))
-    const entry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'recommendation_approve',
-      details: `Zatwierdzono wszystkie działania dla rekomendacji ${rec.id}: "${rec.summary}"`,
-      mode,
-    })
-    addAuditEntry(entry)
   }
 
   function handleReject(rec: Recommendation) {
+    rejectAction(rec.id)
     setApprovedRecs(prev => { const s = new Set(prev); s.delete(rec.id); return s })
-    const entry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'recommendation_reject',
-      details: `Odrzucono rekomendację ${rec.id}: "${rec.summary}"`,
-      mode,
-    })
-    addAuditEntry(entry)
   }
 
   const riskColors = {

@@ -16,6 +16,7 @@ import { ComplianceCenter } from '@/features/compliance/ComplianceCenter'
 import { SystemStatus } from '@/features/system/SystemStatus'
 import { ReportGenerator } from '@/features/reports/ReportGenerator'
 import { IncidentCommandPage } from '@/features/incident-command/IncidentCommandPage'
+import { NationalOverviewPage } from '@/features/national/NationalOverviewPage'
 import { initDatabase, hydrateFromDatabase, flushSyncQueue } from '@/services/databaseService'
 import { setAuditLog } from '@/services/auditLogService'
 
@@ -34,10 +35,11 @@ const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
   compliance: ComplianceCenter,
   system: SystemStatus,
   reports: ReportGenerator,
+  national: NationalOverviewPage,
 }
 
 export default function App() {
-  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations, hydrateDatabase } = useAppStore()
+  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations, hydrateDatabase, runOperationalHeartbeat } = useAppStore()
 
   useEffect(() => {
     document.title = APP_NAME
@@ -71,6 +73,15 @@ export default function App() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [setOnline, refreshSystemHealth, loadIkLocations])
+
+  useEffect(() => {
+    if (!operator) return
+    void runOperationalHeartbeat()
+    const interval = setInterval(() => {
+      void runOperationalHeartbeat()
+    }, 20000)
+    return () => clearInterval(interval)
+  }, [operator, runOperationalHeartbeat])
 
   useEffect(() => {
     if (operator) loadIkLocations()
