@@ -16,6 +16,10 @@ interface ProgressBarProps {
   showValue?: boolean
   className?: string
   thin?: boolean
+  /** Gdy true — nie zmienia koloru automatycznie przy wysokim % (np. postęp misji). */
+  fixedAccent?: boolean
+  /** Większy pasek (10px) dla paneli operacyjnych. */
+  thick?: boolean
 }
 
 export function ProgressBar({
@@ -25,11 +29,14 @@ export function ProgressBar({
   label,
   showValue,
   thin,
+  fixedAccent = false,
+  thick = false,
 }: ProgressBarProps) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
   const autoAccent: Accent = pct > 80 ? 'danger' : pct > 60 ? 'warning' : accent
-  const fill = ACCENT_FILL[autoAccent]
-  const trackH = thin ? 3 : 5
+  const fillAccent = fixedAccent ? accent : autoAccent
+  const fill = ACCENT_FILL[fillAccent]
+  const trackH = thin ? 3 : thick ? 10 : 5
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

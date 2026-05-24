@@ -24,7 +24,7 @@ out = Path(${JSON.stringify(iconPng)})
 logo = Image.open(src).convert('RGBA')
 size = 1024
 canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-max_dim = int(size * 0.78)
+max_dim = int(size * 0.94)
 logo.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 x = (size - logo.width) // 2
 y = (size - logo.height) // 2

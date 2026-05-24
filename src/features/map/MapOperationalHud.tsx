@@ -7,9 +7,14 @@ export const MapOperationalHud = memo(function MapOperationalHud() {
     publicDataSources,
     operationalTelemetry,
     containmentRecovery,
-    cascadeResult,
+    cascadeResult: storeCascade,
     online,
+    incidents,
   } = useAppStore()
+
+  const cascadeResult = incidents.some(i => i.status === 'open' || i.status === 'contained')
+    ? storeCascade
+    : null
 
   const staleSources = publicDataSources.filter(s => s.status === 'stale' || s.status === 'error')
   const liveCount = publicDataSources.filter(s => s.status === 'live').length

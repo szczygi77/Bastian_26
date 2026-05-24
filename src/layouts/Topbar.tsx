@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { User, ChevronDown, LogOut } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
-import { Switch } from '@/components/ui/Switch'
 import { useElectronShell } from '@/hooks/useElectronShell'
 import type { Operator, OperatorRole } from '@/types'
 
@@ -15,36 +14,23 @@ const ROLE_LABEL: Record<OperatorRole, string> = {
 }
 
 export function Topbar() {
-  const { mode, setMode, operator } = useAppStore()
-  const { chromeHeaderHeight } = useElectronShell()
-  const isSimulation = mode === 'simulation'
+  const { operator } = useAppStore()
+  const { sidebarBrandHeight } = useElectronShell()
 
   return (
-    <header className="glass-strong window-drag" style={{
-      flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      height: chromeHeaderHeight, padding: '0 20px', zIndex: 10, gap: 16,
-      borderBottom: isSimulation ? '1px solid rgba(255,138,31,0.16)' : '1px solid rgba(255,255,255,0.06)',
-      background: isSimulation
-        ? 'linear-gradient(90deg, rgba(255,138,31,0.07) 0%, rgba(29,20,13,0.95) 100%)'
-        : undefined,
-    }}>
-      <div className="window-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {isSimulation && (
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
-            color: '#FF8A1F', letterSpacing: '0.16em', textTransform: 'uppercase',
-          }}>
-            Tryb symulacji
-          </span>
-        )}
-        <Switch
-          checked={isSimulation}
-          onChange={(val) => setMode(val ? 'simulation' : 'live')}
-          accent={isSimulation ? 'orange' : 'green'}
-          label={isSimulation ? 'SYMULACJA' : 'LIVE'}
-        />
-      </div>
-
+    <header
+      className="glass-strong window-drag"
+      style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        height: sidebarBrandHeight,
+        padding: '0 24px',
+        zIndex: 10,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
       <OperatorMenu operator={operator} />
     </header>
   )
@@ -92,30 +78,30 @@ function OperatorMenu({ operator }: { operator: Operator | null }) {
         onClick={() => setOpen(v => !v)}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
+          padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
           background: open ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
           border: open ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(255,255,255,0.08)',
           transition: 'all 0.15s ease',
         }}
       >
         <div style={{
-          width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+          width: 32, height: 32, borderRadius: 8, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(255,138,31,0.12)', border: '1px solid rgba(255,138,31,0.28)',
         }}>
-          <User size={12} style={{ color: '#FF8A1F' }} />
+          <User size={16} style={{ color: '#FF8A1F' }} />
         </div>
 
         <div style={{ textAlign: 'left' }}>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600,
-            color: '#E6EDF3', letterSpacing: '0.06em', lineHeight: 1, whiteSpace: 'nowrap',
+            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+            color: '#E6EDF3', letterSpacing: '0.04em', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
             {operator?.name ?? 'OPERATOR'}
           </div>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 8, color: '#3D5060',
-            letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 3, lineHeight: 1,
+            fontFamily: 'var(--font-mono)', fontSize: 9, color: '#3D5060',
+            letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 4, lineHeight: 1,
           }}>
             {operator?.role ?? 'commander'} · CL{operator?.clearanceLevel ?? '?'}
           </div>

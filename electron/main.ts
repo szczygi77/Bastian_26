@@ -19,8 +19,9 @@ const __dirname = path.dirname(__filename)
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:3000'
 
 function resolveIconPath(): string {
-  const icns = path.join(__dirname, '../public/icon.icns')
-  const png = path.join(__dirname, '../public/icon.png')
+  const publicDir = path.join(__dirname, '../public')
+  const icns = path.join(publicDir, 'icon.icns')
+  const png = path.join(publicDir, 'icon.png')
   if (process.platform === 'darwin') {
     try {
       const icnsIcon = nativeImage.createFromPath(icns)
@@ -32,18 +33,27 @@ function resolveIconPath(): string {
   return png
 }
 
-const iconPath = resolveIconPath()
-
 function loadDockIcon(): ReturnType<typeof nativeImage.createFromPath> {
+  const publicDir = path.join(__dirname, '../public')
+  const pngPath = path.join(publicDir, 'icon.png')
+  const pngIcon = nativeImage.createFromPath(pngPath)
+  if (!pngIcon.isEmpty()) {
+    const { width, height } = pngIcon.getSize()
+    if (width >= 512 && height >= 512) return pngIcon
+    return pngIcon.resize({ width: 1024, height: 1024, quality: 'best' })
+  }
+
   const image = nativeImage.createFromPath(iconPath)
   if (image.isEmpty()) return image
 
   const { width, height } = image.getSize()
-  if (width === height) return image
+  const side = Math.max(width, height, 512)
+  if (width === side && height === side) return image
 
-  const side = Math.max(width, height)
   return image.resize({ width: side, height: side, quality: 'best' })
 }
+
+const iconPath = resolveIconPath()
 
 function applyAppIdentity() {
   app.setName(APP_NAME)

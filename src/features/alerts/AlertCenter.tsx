@@ -154,12 +154,12 @@ export function AlertCenter() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Bell size={14} style={{ color: '#00E5FF' }} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E6EDF3' }}>
-                ALERT CENTER
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700, color: '#E6EDF3' }}>
+                Centrum alertów
               </span>
-              {criticalCount > 0 && <Badge variant="critical" dot pulse>{criticalCount} CRITICAL</Badge>}
+              {criticalCount > 0 && <Badge variant="critical" dot pulse>{criticalCount} krytycznych</Badge>}
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#66778B' }}>{alerts.length} total</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#66778B' }}>{alerts.length} łącznie</span>
           </div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
             <button
@@ -190,13 +190,19 @@ export function AlertCenter() {
             </button>
           </div>
           <FilterPills
-            options={['all', 'critical', 'high', 'medium', 'low'].map(s => ({ value: s, label: s }))}
+            options={['all', 'critical', 'high', 'medium', 'low'].map(s => ({
+              value: s,
+              label: s === 'all' ? 'Wszystkie' : s === 'critical' ? 'Krytyczne' : s === 'high' ? 'Wysokie' : s === 'medium' ? 'Średnie' : 'Niskie',
+            }))}
             value={filterSeverity}
             onChange={setFilterSeverity}
           />
           <div style={{ marginTop: 10 }}>
             <FilterPills
-              options={['all', 'active', 'acknowledged', 'escalated', 'resolved'].map(s => ({ value: s, label: s }))}
+              options={['all', 'active', 'acknowledged', 'escalated', 'resolved'].map(s => ({
+                value: s,
+                label: s === 'all' ? 'Wszystkie' : s === 'active' ? 'Aktywne' : s === 'acknowledged' ? 'Potwierdzone' : s === 'escalated' ? 'Eskalowane' : 'Zamknięte',
+              }))}
               value={filterStatus}
               onChange={setFilterStatus}
             />
@@ -290,21 +296,21 @@ export function AlertCenter() {
             </div>
 
             {activeGroup && activeGroup.incidentId && (
-              <Card label="ROOT CAUSE · INCIDENT">
+              <Card label="Przyczyna · incydent">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-mono text-[#E6EDF3]">{activeGroup.title}</div>
                     <div className="text-[10px] font-mono text-[#66778B] mt-1">ID: {activeGroup.incidentId}</div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => openIncidentCommand(activeGroup.incidentId)}>
-                    <ExternalLink size={12} /> Incident Command
+                    <ExternalLink size={12} /> Dowództwo incydentu
                   </Button>
                 </div>
               </Card>
             )}
 
             {activeGroup && activeGroup.alerts.length > 1 && (
-              <Card label="ALERTY W GRUPIE">
+              <Card label="Alerty w grupie">
                 <div className="space-y-1">
                   {activeGroup.alerts.map(alert => (
                     <button
@@ -333,7 +339,7 @@ export function AlertCenter() {
             </Card>
 
             {affectedPath.length > 0 && (
-              <Card label="AFFECTED PATH">
+              <Card label="Ścieżka dotknięcia">
                 <div className="flex flex-wrap gap-2">
                   {affectedPath.map(id => (
                     <Badge key={id} variant="orange">{id.toUpperCase()}</Badge>
@@ -342,7 +348,7 @@ export function AlertCenter() {
               </Card>
             )}
 
-            <Card label="ESCALATION TRAIL">
+            <Card label="Historia eskalacji">
               <div className="space-y-2">
                 {escalationTrail.map((step, i) => (
                   <div key={step.id} className="flex items-start gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
@@ -362,7 +368,7 @@ export function AlertCenter() {
               </div>
             </Card>
 
-            <Card label="SOURCE DATA STATUS">
+            <Card label="Status źródeł danych">
               <div className="flex flex-wrap gap-2">
                 {publicDataSources.map(source => (
                   <Badge key={source.sourceId} variant={SOURCE_STATUS_VARIANT[source.status] ?? 'muted'}>
@@ -372,7 +378,7 @@ export function AlertCenter() {
               </div>
             </Card>
 
-            <Card label="RECOMMENDED ACTIONS">
+            <Card label="Zalecane działania">
               <div className="space-y-2">
                 {selected.recommendedActions.map((action, i) => (
                   <div key={i} className="flex items-start gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
@@ -413,7 +419,7 @@ export function AlertCenter() {
       </div>
 
       {/* Escalate modal */}
-      <Modal open={escalateModal} onClose={() => setEscalateModal(false)} title="ESCALATE ALERT">
+      <Modal open={escalateModal} onClose={() => setEscalateModal(false)} title="Eskalacja alertu">
         <div className="space-y-4">
           <p className="text-[12px] font-mono text-[#94A3B8]">
             Eskalacja alertu do wyższego szczebla dowodzenia. Akcja zostanie zalogowana w audit log i raport zostanie wygenerowany.

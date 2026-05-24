@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Radio, Send, MapPin, Battery, Map, Camera } from 'lucide-react'
+import {
+  Radio, Send, MapPin, Battery, Map, Camera,
+  ScanSearch, ThermometerSun, ShieldCheck, Flame, HeartPulse,
+  Zap, Droplets, TrainFront, Wifi, Shield, Siren, Landmark, Fuel,
+  Crosshair, ChevronRight, Clock, Activity, Signal,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { scoreDrones, assignBestDrone } from '@/services/skymarshalEngine'
 import { logAction } from '@/services/auditLogService'
@@ -13,16 +19,41 @@ import { useToast } from '@/components/ui/Toast'
 import { DroneLiveFeed } from '@/features/skymarshal/DroneLiveFeed'
 import { DroneMissionMap } from '@/features/skymarshal/DroneMissionMap'
 import { MissionActivityPanel } from '@/features/skymarshal/MissionActivityPanel'
-import type { MissionType, IKObject } from '@/types'
+import type { DroneMission, DroneUnit, IKCategory, MissionType, IKObject } from '@/types'
 
-const MISSION_TYPES: { type: MissionType; label: string; desc: string }[] = [
-  { type: 'reconnaissance', label: 'ROZPOZNANIE', desc: 'Zwiady obszaru incydentu' },
-  { type: 'thermal_inspection', label: 'INSPEKCJA TERMALNA', desc: 'Kamera termowizyjna — pożar/osoby' },
-  { type: 'perimeter_monitoring', label: 'MONITORING PERIMETRU', desc: 'Zabezpieczenie obszaru' },
-  { type: 'communication_relay', label: 'PRZEKAŹNIK COMM', desc: 'Łączność w terenie' },
-  { type: 'fire_assessment', label: 'OCENA POŻARU', desc: 'Termalna + RGB nad ogniem' },
-  { type: 'medical_delivery', label: 'DOSTAWA AED', desc: 'Transport defibrylatora' },
+const MISSION_TYPES: { type: MissionType; label: string; desc: string; icon: LucideIcon }[] = [
+  { type: 'reconnaissance', label: 'Rozpoznanie', desc: 'Zwiad obszaru', icon: ScanSearch },
+  { type: 'thermal_inspection', label: 'Inspekcja termalna', desc: 'Termowizja terenu', icon: ThermometerSun },
+  { type: 'perimeter_monitoring', label: 'Monitoring perimetru', desc: 'Zabezpieczenie obwodu', icon: ShieldCheck },
+  { type: 'communication_relay', label: 'Przekaźnik łączności', desc: 'Wsparcie komunikacji', icon: Radio },
+  { type: 'fire_assessment', label: 'Ocena pożaru', desc: 'RGB + termowizja', icon: Flame },
+  { type: 'medical_delivery', label: 'Dostawa AED', desc: 'Transport medyczny', icon: HeartPulse },
 ]
+
+const CATEGORY_META: Record<IKCategory, { label: string; icon: LucideIcon }> = {
+  energy: { label: 'Energia', icon: Zap },
+  water: { label: 'Woda', icon: Droplets },
+  transport: { label: 'Transport', icon: TrainFront },
+  telecommunications: { label: 'Telekom.', icon: Wifi },
+  military: { label: 'Obronność', icon: Shield },
+  emergency: { label: 'Ratownictwo', icon: Siren },
+  government: { label: 'Administracja', icon: Landmark },
+  fuel: { label: 'Paliwa', icon: Fuel },
+}
+
+const MISSION_STATUS_LABEL: Record<string, string> = {
+  dispatched: 'Wysłany',
+  en_route: 'W drodze',
+  on_site: 'Na miejscu',
+  returning: 'Powrót na bazę',
+  completed: 'Zakończony',
+}
+
+function batteryTone(level: number): 'good' | 'mid' | 'low' {
+  if (level >= 50) return 'good'
+  if (level >= 25) return 'mid'
+  return 'low'
+}
 
 export function SkyMarshal() {
   const {
@@ -146,58 +177,106 @@ export function SkyMarshal() {
     <PageSplit className="h-full min-h-0">
       <PageSplitSidebar className="skymarshal-sidebar">
         <div className="skymarshal-sidebar__header">
-          <div className="flex items-center gap-2">
-            <Radio size={14} className="text-[#00E5FF]" />
-            <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-[#E6EDF3]">SKYMARSHAL</span>
-          </div>
-          <div className="text-[10px] font-mono text-[#66778B]">
-            Koordynacja dronów służb — Policja / PSP / OSP / CZK
+          <div className="skymarshal-sidebar__brand">
+            <span className="skymarshal-sidebar__brand-icon" aria-hidden>
+              <Radio size={18} />
+            </span>
+            <div>
+              <div className="skymarshal-sidebar__brand-title">SkyMarshal</div>
+              <div className="skymarshal-sidebar__brand-sub">
+                Koordynacja dronów · Policja / PSP / OSP / CZK
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="skymarshal-sidebar__body">
-          <div>
-            <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">TYP MISJI</div>
-            <div className="ui-list">
-              {MISSION_TYPES.map(({ type, label, desc }) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setSelectedMissionType(type)}
-                  className={`ui-list-item ${selectedMissionType === type ? 'is-selected' : ''}`}
-                >
-                  <div className="text-[11px] font-mono font-medium text-[#E6EDF3]">{label}</div>
-                  <div className="text-[10px] font-mono text-[#66778B]">{desc}</div>
-                </button>
-              ))}
+          <section className="skymarshal-dispatch__section">
+            <div className="skymarshal-dispatch__section-head">
+              <span className="skymarshal-dispatch__section-icon" aria-hidden>
+                <Crosshair size={16} />
+              </span>
+              <div>
+                <h3 className="skymarshal-dispatch__section-title">Typ misji</h3>
+                <p className="skymarshal-dispatch__section-desc">Co ma wykonać dron?</p>
+              </div>
             </div>
-          </div>
+            <div className="skymarshal-dispatch__mission-grid">
+              {MISSION_TYPES.map(({ type, label, desc, icon: Icon }) => {
+                const selected = selectedMissionType === type
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSelectedMissionType(type)}
+                    className={`skymarshal-dispatch__pick${selected ? ' is-selected' : ''}`}
+                    aria-pressed={selected}
+                  >
+                    <span className="skymarshal-dispatch__pick-icon" aria-hidden>
+                      <Icon size={16} />
+                    </span>
+                    <span className="skymarshal-dispatch__pick-label">{label}</span>
+                    <span className="skymarshal-dispatch__pick-meta">{desc}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-          <div>
-            <div className="text-[10px] font-mono text-[#66778B] uppercase tracking-wider mb-2">OBIEKT DOCELOWY</div>
-            <div className="ui-list skymarshal-target-list">
-              {ikObjects.map(obj => (
-                <button
-                  key={obj.id}
-                  type="button"
-                  onClick={() => setSelectedTarget(obj)}
-                  className={`ui-list-item ${selectedTarget?.id === obj.id ? 'is-selected' : ''}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-[#94A3B8]">{obj.shortName}</span>
-                    <MapPin size={10} className="text-[#66778B]" />
-                  </div>
-                  <div className="text-[10px] font-mono text-[#66778B] mt-1">{obj.name}</div>
-                </button>
-              ))}
+          <section className="skymarshal-dispatch__section">
+            <div className="skymarshal-dispatch__section-head">
+              <span className="skymarshal-dispatch__section-icon skymarshal-dispatch__section-icon--target" aria-hidden>
+                <MapPin size={16} />
+              </span>
+              <div>
+                <h3 className="skymarshal-dispatch__section-title">Obiekt docelowy</h3>
+                <p className="skymarshal-dispatch__section-desc">Gdzie skierować zasób?</p>
+              </div>
             </div>
-          </div>
+            <div className="skymarshal-dispatch__target-list">
+              {ikObjects.map(obj => {
+                const selected = selectedTarget?.id === obj.id
+                const category = CATEGORY_META[obj.category]
+                const CategoryIcon = category.icon
+                return (
+                  <button
+                    key={obj.id}
+                    type="button"
+                    onClick={() => setSelectedTarget(obj)}
+                    className={`skymarshal-dispatch__target${selected ? ' is-selected' : ''}`}
+                    aria-pressed={selected}
+                  >
+                    <span className="skymarshal-dispatch__target-icon" aria-hidden>
+                      <CategoryIcon size={15} />
+                    </span>
+                    <span className="skymarshal-dispatch__target-body">
+                      <span className="skymarshal-dispatch__target-row">
+                        <strong>{obj.shortName}</strong>
+                        <Badge variant="muted">{category.label}</Badge>
+                      </span>
+                      <span className="skymarshal-dispatch__target-name">{obj.name}</span>
+                    </span>
+                    <ChevronRight size={14} className="skymarshal-dispatch__target-chevron" aria-hidden />
+                  </button>
+                )
+              })}
+            </div>
+          </section>
         </div>
 
         <div className="skymarshal-sidebar__footer">
-          {selectedTarget && (
-            <div className="text-[10px] font-mono text-[#66778B] mb-2">
-              Best score: <span className="text-[#00E5FF]">{bestScore}</span> / 100
+          {(selectedTarget || selectedMissionType) && (
+            <div className="skymarshal-dispatch__summary">
+              <div className="skymarshal-dispatch__summary-label">Planowana akcja</div>
+              <div className="skymarshal-dispatch__summary-value">
+                {MISSION_TYPES.find(m => m.type === selectedMissionType)?.label ?? '—'}
+                {selectedTarget ? ` → ${selectedTarget.shortName}` : ''}
+              </div>
+              {selectedTarget && (
+                <div className="skymarshal-dispatch__summary-score">
+                  Najlepszy wynik dopasowania: <strong>{bestScore}</strong>/100
+                </div>
+              )}
             </div>
           )}
           <Button
@@ -207,7 +286,7 @@ export function SkyMarshal() {
             disabled={!canDispatch}
             onClick={dispatchBestDrone}
           >
-            <Send size={12} /> DISPATCH BEST DRONE
+            <Send size={14} /> Zadysponuj najlepszy dron
           </Button>
         </div>
       </PageSplitSidebar>
@@ -236,42 +315,7 @@ export function SkyMarshal() {
                 />
               </div>
               <Card accent="cyan" noPad>
-                <div className="skymarshal-mission-stats">
-                  <div className="skymarshal-mission-stats__progress">
-                    <div className="skymarshal-mission-stats__progress-head">
-                      <span>{selectedMission.status === 'on_site' ? 'Postęp pracy na miejscu' : 'Postęp misji'}</span>
-                      <strong>
-                        {selectedMission.status === 'on_site' && selectedMission.activityProgress != null
-                          ? `${selectedMission.activityProgress}%`
-                          : `${selectedMission.progressPercent.toFixed(0)}%`}
-                      </strong>
-                    </div>
-                    <ProgressBar
-                      value={selectedMission.status === 'on_site' && selectedMission.activityProgress != null
-                        ? selectedMission.activityProgress
-                        : selectedMission.progressPercent}
-                      accent="cyan"
-                    />
-                  </div>
-                  <div className="skymarshal-stats-grid">
-                    <div className="skymarshal-stat">
-                      <span>ETA</span>
-                      <strong>{selectedMission.estimatedArrivalMin} min</strong>
-                    </div>
-                    <div className="skymarshal-stat">
-                      <span>Status</span>
-                      <StatusBadge status={selectedMission.status} />
-                    </div>
-                    <div className="skymarshal-stat">
-                      <span>Bateria</span>
-                      <strong>{selectedMissionDrone.battery}%</strong>
-                    </div>
-                    <div className="skymarshal-stat">
-                      <span>Kanał</span>
-                      <strong>{selectedMissionDrone.protocol.toUpperCase()}</strong>
-                    </div>
-                  </div>
-                </div>
+                <MissionStatsPanel mission={selectedMission} drone={selectedMissionDrone} />
               </Card>
               <Card accent="cyan" noPad>
                 <MissionActivityPanel mission={selectedMission} />
@@ -290,7 +334,7 @@ export function SkyMarshal() {
               <div className="text-center py-10 text-[#66778B] font-mono">
                 <Camera size={28} className="mx-auto mb-3 opacity-30" />
                 <div className="text-[13px] text-[#94A3B8]">Brak aktywnej misji</div>
-                <div className="text-[11px] mt-2">Wybierz typ misji, obiekt docelowy i kliknij Dispatch</div>
+                <div className="text-[11px] mt-2">Wybierz typ misji i obiekt docelowy, potem zadysponuj dron</div>
               </div>
             </Card>
           </section>
@@ -429,5 +473,80 @@ export function SkyMarshal() {
       </PageSplitMain>
     </PageSplit>
     </PageShell>
+  )
+}
+
+function MissionStatsPanel({ mission, drone }: { mission: DroneMission; drone: DroneUnit }) {
+  const progressValue = mission.status === 'on_site' && mission.activityProgress != null
+    ? mission.activityProgress
+    : mission.progressPercent
+  const progressLabel = mission.status === 'on_site' ? 'Postęp pracy na miejscu' : 'Postęp misji'
+  const batteryLevel = drone.battery
+  const batteryState = batteryTone(batteryLevel)
+  const protocolLabel = drone.protocol === 'dji_sdk'
+    ? 'DJI SDK'
+    : drone.protocol === 'mavlink'
+      ? 'MAVLink'
+      : drone.protocol.toUpperCase()
+
+  return (
+    <div className="skymarshal-mission-stats">
+      <div className="skymarshal-mission-stats__hero">
+        <div className="skymarshal-mission-stats__hero-head">
+          <span className="skymarshal-mission-stats__hero-label">{progressLabel}</span>
+          <span className="skymarshal-mission-stats__hero-value">{progressValue.toFixed(0)}%</span>
+        </div>
+        <ProgressBar
+          value={progressValue}
+          accent={mission.status === 'on_site' ? 'green' : 'cyan'}
+          fixedAccent
+          thick
+        />
+      </div>
+
+      <div className="skymarshal-kpi-grid">
+        <div className="skymarshal-kpi">
+          <span className="skymarshal-kpi__icon skymarshal-kpi__icon--cyan" aria-hidden>
+            <Clock size={18} />
+          </span>
+          <div className="skymarshal-kpi__body">
+            <span className="skymarshal-kpi__label">Szac. ETA</span>
+            <strong className="skymarshal-kpi__value">{mission.estimatedArrivalMin} min</strong>
+          </div>
+        </div>
+
+        <div className="skymarshal-kpi">
+          <span className="skymarshal-kpi__icon skymarshal-kpi__icon--orange" aria-hidden>
+            <Activity size={18} />
+          </span>
+          <div className="skymarshal-kpi__body">
+            <span className="skymarshal-kpi__label">Status misji</span>
+            <strong className={`skymarshal-kpi__value skymarshal-kpi__value--status is-${mission.status}`}>
+              {MISSION_STATUS_LABEL[mission.status] ?? mission.status}
+            </strong>
+          </div>
+        </div>
+
+        <div className="skymarshal-kpi">
+          <span className={`skymarshal-kpi__icon skymarshal-kpi__icon--battery is-${batteryState}`} aria-hidden>
+            <Battery size={18} />
+          </span>
+          <div className="skymarshal-kpi__body">
+            <span className="skymarshal-kpi__label">Bateria drona</span>
+            <strong className={`skymarshal-kpi__value is-${batteryState}`}>{batteryLevel}%</strong>
+          </div>
+        </div>
+
+        <div className="skymarshal-kpi">
+          <span className="skymarshal-kpi__icon skymarshal-kpi__icon--cyan" aria-hidden>
+            <Signal size={18} />
+          </span>
+          <div className="skymarshal-kpi__body">
+            <span className="skymarshal-kpi__label">Kanał łączności</span>
+            <strong className="skymarshal-kpi__value">{protocolLabel}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

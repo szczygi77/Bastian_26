@@ -18,17 +18,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const VARIANT_ICON: Record<ToastVariant, React.ReactNode> = {
-  default: <Info className="w-4 h-4 text-primary" />,
-  success: <CheckCircle2 className="w-4 h-4 text-[#78d99a]" />,
-  destructive: <AlertTriangle className="w-4 h-4 text-destructive" />,
-  warning: <AlertTriangle className="w-4 h-4 text-warning" />,
-}
-
-const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  default: 'border-primary/30 bg-card/90',
-  success: 'border-[rgba(34,197,94,0.4)] bg-[rgba(34,197,94,0.1)]',
-  destructive: 'border-destructive/40 bg-destructive/10',
-  warning: 'border-[rgba(238,180,0,0.4)] bg-[rgba(238,180,0,0.1)]',
+  default: <Info size={18} />,
+  success: <CheckCircle2 size={18} />,
+  destructive: <AlertTriangle size={18} />,
+  warning: <AlertTriangle size={18} />,
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -47,31 +40,35 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-[min(380px,calc(100vw-2rem))]">
-        {items.map(item => (
-          <div
-            key={item.id}
-            className={cn(
-              'glass-strong rounded-xl border p-4 shadow-lg animate-fade-in flex gap-3',
-              VARIANT_CLASSES[item.variant ?? 'default'],
-            )}
-          >
-            {VARIANT_ICON[item.variant ?? 'default']}
-            <div className="flex-1 min-w-0">
-              <div className="font-mono text-xs font-semibold text-foreground">{item.title}</div>
-              {item.description && (
-                <div className="text-xs text-muted-foreground mt-1">{item.description}</div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => dismiss(item.id)}
-              className="text-muted-foreground hover:text-foreground shrink-0"
+      <div className="bastion-toast-stack" aria-live="polite" aria-relevant="additions">
+        {items.map(item => {
+          const variant = item.variant ?? 'default'
+          return (
+            <div
+              key={item.id}
+              role="status"
+              className={cn('bastion-toast animate-fade-in', `bastion-toast--${variant}`)}
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
+              <span className="bastion-toast__icon" aria-hidden>
+                {VARIANT_ICON[variant]}
+              </span>
+              <div className="bastion-toast__body">
+                <div className="bastion-toast__title">{item.title}</div>
+                {item.description && (
+                  <div className="bastion-toast__desc">{item.description}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="bastion-toast__close"
+                aria-label="Zamknij powiadomienie"
+                onClick={() => dismiss(item.id)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

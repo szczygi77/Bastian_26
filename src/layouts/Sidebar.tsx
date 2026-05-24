@@ -10,37 +10,37 @@ import { useElectronShell } from '@/hooks/useElectronShell'
 
 const NAV_GROUPS = [
   {
-    label: 'Core',
+    label: 'Rdzeń',
     items: [
-      { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-      { id: 'incident-command', label: 'INCIDENT CMD', icon: Command },
-      { id: 'national', label: 'NATIONAL', icon: Globe },
-      { id: 'map', label: 'MAP', icon: Map },
-      { id: 'graph', label: 'GRAPH', icon: GitBranch },
-      { id: 'incidents', label: 'INCIDENTS', icon: Play },
-      { id: 'ai', label: 'DECISION SUPPORT', icon: Cpu },
+      { id: 'dashboard', label: 'Pulpit', icon: LayoutDashboard },
+      { id: 'incident-command', label: 'Dowództwo', icon: Command },
+      { id: 'national', label: 'Kraj', icon: Globe },
+      { id: 'map', label: 'Mapa', icon: Map },
+      { id: 'graph', label: 'Graf', icon: GitBranch },
+      { id: 'incidents', label: 'Scenariusze', icon: Play },
+      { id: 'ai', label: 'Decyzje', icon: Cpu },
     ],
   },
   {
-    label: 'Response',
+    label: 'Reagowanie',
     items: [
-      { id: 'skymarshal', label: 'SKYMARSHAL', icon: Radio },
-      { id: 'alerts', label: 'ALERTS', icon: Bell },
+      { id: 'skymarshal', label: 'SkyMarshal', icon: Radio },
+      { id: 'alerts', label: 'Alerty', icon: Bell },
     ],
   },
   {
-    label: 'Admin',
+    label: 'Administracja',
     items: [
-      { id: 'audit', label: 'AUDIT', icon: FileText },
-      { id: 'compliance', label: 'COMPLIANCE', icon: Shield },
-      { id: 'system', label: 'SYSTEM', icon: Activity },
+      { id: 'audit', label: 'Dziennik', icon: FileText },
+      { id: 'compliance', label: 'Zgodność', icon: Shield },
+      { id: 'system', label: 'System', icon: Activity },
     ],
   },
 ]
 
 export function Sidebar() {
   const { activeView, setActiveView, sidebarExpanded, setSidebarExpanded, alerts, incidents } = useAppStore()
-  const { chromeHeaderHeight, sidebarCollapsedWidth } = useElectronShell()
+  const { sidebarBrandHeight, sidebarCollapsedWidth } = useElectronShell()
   const activeAlerts = alerts.filter(a => a.status === 'active').length
   const openIncidents = incidents.filter(i => i.status === 'open').length
 
@@ -63,13 +63,14 @@ export function Sidebar() {
     >
       {/* ── Logo ─────────────────────────────────────────────────────── */}
       <div
-        className="window-drag"
+        className="window-drag sidebar-brand"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: chromeHeaderHeight,
-          padding: '0 14px',
+          height: sidebarBrandHeight,
+          minHeight: sidebarBrandHeight,
+          padding: sidebarExpanded ? '10px 18px' : '10px 12px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           flexShrink: 0,
           overflow: 'hidden',
@@ -78,8 +79,12 @@ export function Sidebar() {
         <BrandLogo
           className="window-no-drag"
           variant={sidebarExpanded ? 'full' : 'icon'}
-          height={sidebarExpanded ? 64 : 42}
-          style={{ maxWidth: sidebarExpanded ? 220 : 46 }}
+          height={sidebarExpanded ? 72 : 48}
+          style={{
+            maxWidth: sidebarExpanded ? 260 : 56,
+            maxHeight: sidebarBrandHeight - 16,
+            width: 'auto',
+          }}
         />
       </div>
 
@@ -97,7 +102,6 @@ export function Sidebar() {
       >
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi}>
-            {/* Group label — only when expanded */}
             <AnimatePresence>
               {sidebarExpanded && (
                 <motion.div
@@ -121,7 +125,6 @@ export function Sidebar() {
               )}
             </AnimatePresence>
 
-            {/* Divider when collapsed */}
             {!sidebarExpanded && gi > 0 && (
               <div
                 style={{
@@ -152,7 +155,6 @@ export function Sidebar() {
                       color: isActive ? '#FF8A1F' : '#66778B',
                     }}
                   >
-                    {/* Active left-edge indicator */}
                     {isActive && (
                       <span
                         style={{
@@ -162,13 +164,11 @@ export function Sidebar() {
                           bottom: '20%',
                           width: 2,
                           borderRadius: '0 1px 1px 0',
-                          background: 'linear-gradient(180deg, #FF8A1F 0%, rgba(255,138,31,0.3) 100%)',
-                          boxShadow: '0 0 8px rgba(255,138,31,0.55)',
+                          background: '#FF8A1F',
                         }}
                       />
                     )}
 
-                    {/* Icon */}
                     <div
                       style={{
                         flexShrink: 0,
@@ -180,14 +180,7 @@ export function Sidebar() {
                         position: 'relative',
                       }}
                     >
-                      <Icon
-                        size={17}
-                        style={
-                          isActive
-                            ? { filter: 'drop-shadow(0 0 5px rgba(255,138,31,0.60))' }
-                            : undefined
-                        }
-                      />
+                      <Icon size={17} />
                       {hasBadge && (
                         <span
                           style={{
@@ -198,7 +191,6 @@ export function Sidebar() {
                             height: 14,
                             borderRadius: 7,
                             background: '#EF4444',
-                            boxShadow: '0 0 7px rgba(239,68,68,0.65)',
                             fontFamily: 'var(--font-mono)',
                             fontSize: 8,
                             color: '#fff',
@@ -213,7 +205,6 @@ export function Sidebar() {
                       )}
                     </div>
 
-                    {/* Label */}
                     <AnimatePresence>
                       {sidebarExpanded && (
                         <motion.span
@@ -222,10 +213,9 @@ export function Sidebar() {
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.14 }}
                           style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: 11,
+                            fontFamily: 'var(--font-sans)',
+                            fontSize: 12,
                             fontWeight: 500,
-                            letterSpacing: '0.08em',
                             whiteSpace: 'nowrap',
                             color: isActive ? '#FF8A1F' : '#66778B',
                           }}
@@ -242,7 +232,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* ── Collapse toggle ──────────────────────────────────────────── */}
       <div
         style={{
           padding: '8px',
@@ -291,7 +280,7 @@ export function Sidebar() {
                 transition={{ duration: 0.14 }}
                 style={{ textTransform: 'uppercase' }}
               >
-                ZWIŃ
+                Zwiń
               </motion.span>
             )}
           </AnimatePresence>

@@ -20,6 +20,8 @@
     "electron:dev": "node scripts/electron-dev.mjs",
     "electron:build": "node scripts/electron-build.mjs",
     "icons:generate": "node scripts/generate-app-icon.mjs",
+    "regions:fetch-photos": "node scripts/fetch-region-photos.mjs",
+    "regions:fetch-emblems": "node scripts/fetch-region-emblems.mjs",
     "media:fetch-google": "node scripts/fetch-ik-google-images.mjs"
   },
   "dependencies": {
@@ -31,6 +33,7 @@
     "d3": "^7.9.0",
     "date-fns": "^4.3.0",
     "framer-motion": "^12.40.0",
+    "hls.js": "^1.6.16",
     "html2canvas": "^1.4.1",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",

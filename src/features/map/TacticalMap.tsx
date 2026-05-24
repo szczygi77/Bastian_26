@@ -52,7 +52,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
 
   const {
     ikObjects,
-    cascadeResult,
+    cascadeResult: storeCascade,
     drones,
     missions,
     mapCenter,
@@ -66,7 +66,12 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
     incidentMapFilter,
     containmentRecovery,
     operationalTelemetry,
+    incidents,
   } = useAppStore()
+
+  const cascadeResult = incidents.some(i => i.status === 'open' || i.status === 'contained')
+    ? storeCascade
+    : null
   const boundsFittedRef = useRef(false)
 
   const [layers, setLayers] = useState<LayerControls>({

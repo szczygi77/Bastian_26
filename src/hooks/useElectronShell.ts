@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
-export const MAC_TITLEBAR_HEIGHT = 40
-export const MAC_CHROME_HEADER_HEIGHT = 72
+export const MAC_TITLEBAR_HEIGHT = 44
+export const TOPBAR_HEIGHT = 55
+export const SIDEBAR_BRAND_HEIGHT = 80
 
 export function useElectronShell() {
   const [isMacOS, setIsMacOS] = useState(
@@ -25,7 +26,10 @@ export function useElectronShell() {
     isElectron: typeof window !== 'undefined' && !!window.electronAPI,
     isMacOS,
     titlebarHeight: isMacOS ? MAC_TITLEBAR_HEIGHT : 0,
-    chromeHeaderHeight: isMacOS ? MAC_CHROME_HEADER_HEIGHT : 48,
-    sidebarCollapsedWidth: isMacOS ? 72 : 64,
+    topbarHeight: TOPBAR_HEIGHT,
+    sidebarBrandHeight: SIDEBAR_BRAND_HEIGHT,
+    /** @deprecated use topbarHeight / sidebarBrandHeight */
+    chromeHeaderHeight: TOPBAR_HEIGHT,
+    sidebarCollapsedWidth: isMacOS ? 80 : 72,
   }
 }

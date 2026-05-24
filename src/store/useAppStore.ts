@@ -21,6 +21,11 @@ import type {
   SystemMode,
 } from '@/types'
 import { IK_OBJECTS, STALOWA_WOLA_CENTER } from '@/data/stalowa-wola'
+import {
+  buildNominalIkObjects,
+  normalizeHydratedSession,
+  runtimeClearPatch,
+} from '@/services/operationalSessionService'
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
 import { orchestratePublicDataSync } from '@/services/apiOrchestrator'
@@ -51,6 +56,7 @@ import {
   buildClosureNote,
   buildHandoverNote,
   canCloseIncident,
+  findAlertsBoundToIncident,
   restoreCascadeForIncident,
 } from '@/services/incidentLifecycleService'
 import {
@@ -294,10 +300,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       notes: buildClosureNote({ incident, operator, mode: 'resolved', summary }),
     })
 
-    const relatedAlerts = state.alerts.filter(a => a.incidentId === incidentId && a.status !== 'resolved')
+    const relatedAlerts = findAlertsBoundToIncident(incident, state.alerts)
     for (const alert of relatedAlerts) {
-      get().updateAlert(alert.id, { status: 'resolved', resolvedAt: new Date() })
+      get().updateAlert(alert.id, { status: 'resolved', resolvedAt: new Date(), incidentId: incident.id })
     }
+
+    const resolvedRecs = state.recommendations.map(r =>
+      r.incidentId === incidentId
+        ? { ...r, actions: r.actions.map(a => ({ ...a, approved: false, executionState: 'reverted' as const })) }
+        : r,
+    )
 
     const entry = logAction({
       operator,
@@ -307,6 +319,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       mode: state.mode,
     })
     get().addAuditEntry(entry)
+
+    for (const rec of resolvedRecs) {
+      if (rec.incidentId === incidentId) void saveRecommendation(rec).catch(() => {})
+    }
 
     if (state.activeScenarioRun) {
       get().setActiveScenarioRun({
@@ -318,6 +334,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     get().resetObjectStatuses()
     set({
+      recommendations: resolvedRecs,
       cascadeResult: null,
       containmentResult: null,
       containmentRecovery: null,
@@ -369,6 +386,10 @@ export const useAppStore = create<AppState>((set, get) => ({
           summary: `[ABORT] ${summary}`,
         }),
       })
+      const boundAlerts = findAlertsBoundToIncident(openIncident, state.alerts)
+      for (const alert of boundAlerts) {
+        get().updateAlert(alert.id, { status: 'resolved', resolvedAt: new Date(), incidentId: openIncident.id })
+      }
     }
 
     const entry = logAction({
@@ -910,17 +931,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   openDroneMissionOnMap: (missionId) => set({ focusedDroneMissionId: missionId, activeView: 'map' }),
 
   hydrateDatabase: (data) => {
+    const normalized = normalizeHydratedSession(data)
+    const ikObjects = buildNominalIkObjects(IK_OBJECTS, normalized.data.ikStates)
+
     set(state => ({
-      auditEntries: data.auditEntries.length > 0 ? data.auditEntries : state.auditEntries,
-      alerts: data.alerts.length > 0 ? data.alerts : state.alerts,
-      incidents: data.incidents.length > 0 ? data.incidents : state.incidents,
-      missions: data.missions.length > 0 ? data.missions : state.missions,
-      recommendations: data.recommendations.length > 0 ? data.recommendations : state.recommendations,
-      ikObjects: applyIkStates(state.ikObjects, data.ikStates),
+      auditEntries: normalized.data.auditEntries.length > 0 ? normalized.data.auditEntries : state.auditEntries,
+      alerts: normalized.data.alerts,
+      incidents: normalized.data.incidents,
+      missions: normalized.shouldClearRuntime
+        ? state.missions.map(m => (m.status === 'completed' ? m : { ...m, status: 'completed' as const }))
+        : normalized.data.missions.length > 0 ? normalized.data.missions : state.missions,
+      recommendations: normalized.shouldClearRuntime ? [] : normalized.data.recommendations,
+      ikObjects,
+      ...(normalized.shouldClearRuntime ? runtimeClearPatch() : {}),
     }))
-    const openIncident = get().incidents.find(i => i.status === 'open' || i.status === 'contained')
-    if (openIncident && !get().cascadeResult) {
-      get().restoreIncidentContext(openIncident.id)
+
+    if (normalized.shouldClearRuntime) {
+      for (const obj of ikObjects) {
+        void saveIkObjectState({ id: obj.id, status: obj.status, coordinates: obj.coordinates }).catch(() => {})
+      }
+      for (const alert of normalized.data.alerts) {
+        const prev = data.alerts.find(a => a.id === alert.id)
+        if (prev && prev.status !== alert.status) {
+          void saveAlert(alert).catch(() => {})
+        }
+      }
+    } else if (normalized.activeIncident) {
+      set({ activeIncidentId: normalized.activeIncident.id })
+      if (!get().cascadeResult) {
+        get().restoreIncidentContext(normalized.activeIncident.id)
+      }
     }
   },
 }))

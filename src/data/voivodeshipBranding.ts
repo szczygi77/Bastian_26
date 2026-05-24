@@ -1,0 +1,260 @@
+export interface VoivodeshipBrand {
+  capital: string
+  sectorPl: string
+  tagline: string
+  accent: string
+  accentSoft: string
+  crestFrom: string
+  crestTo: string
+  initials: string
+  /** Lokalne zdjęcie w public/regions/{id}.jpg */
+  heroImage: string
+  imageCaption: string
+  highlights: string[]
+}
+
+export const LIVE_VOIVODESHIP_ID = 'podkarpackie'
+
+function regionPhoto(id: string): string {
+  return `/regions/${id}.jpg`
+}
+
+export const VOIVODESHIP_BRANDING: Record<string, VoivodeshipBrand> = {
+  podkarpackie: {
+    capital: 'Rzeszów',
+    sectorPl: 'Centrum dowodzenia regionalnego',
+    tagline: 'Pełne dane operacyjne SpaceShield · rejon Stalowej Woli',
+    accent: '#22C55E',
+    accentSoft: 'rgba(34,197,94,0.12)',
+    crestFrom: '#991B1B',
+    crestTo: '#FCA5A5',
+    initials: 'PK',
+    heroImage: regionPhoto('podkarpackie'),
+    imageCaption: 'Stalowa Wola — rzeka San (Wikimedia Commons)',
+    highlights: ['Stalowa Wola', 'HSW', 'Korytarz IK południowo-wschodniej Polski'],
+  },
+  lubelskie: {
+    capital: 'Lublin',
+    sectorPl: 'Sąsiedni region operacyjny',
+    tagline: 'Agregat syntetyczny · węzeł IK Lubelszczyzny',
+    accent: '#FACC15',
+    accentSoft: 'rgba(250,204,21,0.10)',
+    crestFrom: '#14532D',
+    crestTo: '#FACC15',
+    initials: 'LU',
+    heroImage: regionPhoto('lubelskie'),
+    imageCaption: 'Lublin — panorama Starego Miasta (Wikimedia Commons)',
+    highlights: ['Lublin', 'Zamość', 'Rozproszone obiekty IK'],
+  },
+  mazowieckie: {
+    capital: 'Warszawa',
+    sectorPl: 'Rdzeń administracyjny kraju',
+    tagline: 'Agregat strategiczny · infrastruktura krytyczna',
+    accent: '#EF4444',
+    accentSoft: 'rgba(239,68,68,0.10)',
+    crestFrom: '#991B1B',
+    crestTo: '#FCA5A5',
+    initials: 'MZ',
+    heroImage: regionPhoto('mazowieckie'),
+    imageCaption: 'Warszawa — widok z Pałacu Kultury i Nauki (Wikimedia Commons)',
+    highlights: ['Warszawa', 'Sieć rządowa', 'Centra danych'],
+  },
+  malopolskie: {
+    capital: 'Kraków',
+    sectorPl: 'Pas energetyczny południa',
+    tagline: 'Monitorowanie obiektów IK · sektor energy',
+    accent: '#FF8A1F',
+    accentSoft: 'rgba(255,138,31,0.10)',
+    crestFrom: '#9A3412',
+    crestTo: '#FED7AA',
+    initials: 'MA',
+    heroImage: regionPhoto('malopolskie'),
+    imageCaption: 'Kraków — Wawel nad Wisłą (Wikimedia Commons)',
+    highlights: ['Kraków', 'Nowa Huta', 'Elektrownie'],
+  },
+  slaskie: {
+    capital: 'Katowice',
+    sectorPl: 'Siatka przemysłowa',
+    tagline: 'Agregat syntetyczny · obiekty przemysłowe',
+    accent: '#3B82F6',
+    accentSoft: 'rgba(59,130,246,0.10)',
+    crestFrom: '#1E3A8A',
+    crestTo: '#FDE047',
+    initials: 'ŚL',
+    heroImage: regionPhoto('slaskie'),
+    imageCaption: 'Katowice — Spodek (Wikimedia Commons)',
+    highlights: ['Katowice', 'GOP', 'Hub przemysłowy'],
+  },
+  pomorskie: {
+    capital: 'Gdańsk',
+    sectorPl: 'Port i telekomunikacja',
+    tagline: 'Wybrzeże · węzły łączności morskiej',
+    accent: '#00E5FF',
+    accentSoft: 'rgba(0,229,255,0.10)',
+    crestFrom: '#0F172A',
+    crestTo: '#FACC15',
+    initials: 'PM',
+    heroImage: regionPhoto('pomorskie'),
+    imageCaption: 'Gdańsk — Motława i Żuraw (Wikimedia Commons)',
+    highlights: ['Gdańsk', 'Gdynia', 'Porty morskie'],
+  },
+  wielkopolskie: {
+    capital: 'Poznań',
+    sectorPl: 'Hub logistyczny',
+    tagline: 'Korytarze transportowe · IK transport',
+    accent: '#A855F7',
+    accentSoft: 'rgba(168,85,247,0.10)',
+    crestFrom: '#6B21A8',
+    crestTo: '#F9A8D4',
+    initials: 'WP',
+    heroImage: regionPhoto('wielkopolskie'),
+    imageCaption: 'Poznań — Stary Rynek (Wikimedia Commons)',
+    highlights: ['Poznań', 'A2 / A1', 'Węzły logistyczne'],
+  },
+  dolnoslaskie: {
+    capital: 'Wrocław',
+    sectorPl: 'Hub przemysłowy zachodu',
+    tagline: 'Agregat syntetyczny · Dolny Śląsk',
+    accent: '#6366F1',
+    accentSoft: 'rgba(99,102,241,0.10)',
+    crestFrom: '#312E81',
+    crestTo: '#A5B4FC',
+    initials: 'DŚ',
+    heroImage: regionPhoto('dolnoslaskie'),
+    imageCaption: 'Wrocław — Rynek (Wikimedia Commons)',
+    highlights: ['Wrocław', 'Wałbrzych', 'Kopalnie i energetyka'],
+  },
+  'kujawsko-pomorskie': {
+    capital: 'Bydgoszcz',
+    sectorPl: 'Pas centralny',
+    tagline: 'Agregat syntetyczny · Kujawy i Pomorze',
+    accent: '#EC4899',
+    accentSoft: 'rgba(236,72,153,0.10)',
+    crestFrom: '#831843',
+    crestTo: '#FBCFE8',
+    initials: 'KP',
+    heroImage: regionPhoto('kujawsko-pomorskie'),
+    imageCaption: 'Toruń — Stare Miasto (Wikimedia Commons)',
+    highlights: ['Bydgoszcz', 'Toruń', 'Mosty i węzły IK'],
+  },
+  lodzkie: {
+    capital: 'Łódź',
+    sectorPl: 'Rdzeń logistyczny',
+    tagline: 'Agregat syntetyczny · korytarze transportowe',
+    accent: '#F97316',
+    accentSoft: 'rgba(249,115,22,0.10)',
+    crestFrom: '#9A3412',
+    crestTo: '#FDBA74',
+    initials: 'ŁD',
+    heroImage: regionPhoto('lodzkie'),
+    imageCaption: 'Łódź — Piotrkowska (Wikimedia Commons)',
+    highlights: ['Łódź', 'A1 / A2', 'Centra dystrybucji'],
+  },
+  lubuskie: {
+    capital: 'Gorzów Wielkopolski',
+    sectorPl: 'Perimeter zachodni',
+    tagline: 'Agregat syntetyczny · granica zachodnia',
+    accent: '#14B8A6',
+    accentSoft: 'rgba(20,184,166,0.10)',
+    crestFrom: '#115E59',
+    crestTo: '#99F6E4',
+    initials: 'LB',
+    heroImage: regionPhoto('lubuskie'),
+    imageCaption: 'Gorzów Wielkopolski — nad Wartą (Wikimedia Commons)',
+    highlights: ['Gorzów Wlkp.', 'Zielona Góra', 'Obiekty graniczne'],
+  },
+  opolskie: {
+    capital: 'Opole',
+    sectorPl: 'Siatka transgraniczna',
+    tagline: 'Agregat syntetyczny · południowo-zachodnia Polska',
+    accent: '#84CC16',
+    accentSoft: 'rgba(132,204,22,0.10)',
+    crestFrom: '#365314',
+    crestTo: '#BEF264',
+    initials: 'OP',
+    heroImage: regionPhoto('opolskie'),
+    imageCaption: 'Opole — Rynek (Wikimedia Commons)',
+    highlights: ['Opole', 'Kędzierzyn-Koźle', 'Obiekty IK Oder'],
+  },
+  podlaskie: {
+    capital: 'Białystok',
+    sectorPl: 'Perimeter wschodni',
+    tagline: 'Agregat syntetyczny · wschodnia granica',
+    accent: '#0EA5E9',
+    accentSoft: 'rgba(14,165,233,0.10)',
+    crestFrom: '#0C4A6E',
+    crestTo: '#BAE6FD',
+    initials: 'PD',
+    heroImage: regionPhoto('podlaskie'),
+    imageCaption: 'Białystok — Pałac Branickich (Wikimedia Commons)',
+    highlights: ['Białystok', 'Suwałki', 'Infrastruktura wschodnia'],
+  },
+  swietokrzyskie: {
+    capital: 'Kielce',
+    sectorPl: 'Pas górniczy',
+    tagline: 'Agregat syntetyczny · Góry Świętokrzyskie',
+    accent: '#EAB308',
+    accentSoft: 'rgba(234,179,8,0.10)',
+    crestFrom: '#713F12',
+    crestTo: '#FEF08A',
+    initials: 'ŚK',
+    heroImage: regionPhoto('swietokrzyskie'),
+    imageCaption: 'Kielce — Rynek (Wikimedia Commons)',
+    highlights: ['Kielce', 'Starachowice', 'Górnictwo i hutnictwo'],
+  },
+  'warminsko-mazurskie': {
+    capital: 'Olsztyn',
+    sectorPl: 'Północ i jeziora',
+    tagline: 'Agregat syntetyczny · Warmia i Mazury',
+    accent: '#06B6D4',
+    accentSoft: 'rgba(6,182,212,0.10)',
+    crestFrom: '#164E63',
+    crestTo: '#A5F3FC',
+    initials: 'WM',
+    heroImage: regionPhoto('warminsko-mazurskie'),
+    imageCaption: 'Olsztyn — Stare Miasto (Wikimedia Commons)',
+    highlights: ['Olsztyn', 'Elbląg', 'Infrastruktura wodna'],
+  },
+  zachodniopomorskie: {
+    capital: 'Szczecin',
+    sectorPl: 'Wybrzeże zachodnie',
+    tagline: 'Agregat syntetyczny · porty Bałtyku',
+    accent: '#8B5CF6',
+    accentSoft: 'rgba(139,92,246,0.10)',
+    crestFrom: '#4C1D95',
+    crestTo: '#DDD6FE',
+    initials: 'ZP',
+    heroImage: regionPhoto('zachodniopomorskie'),
+    imageCaption: 'Szczecin — Wały Chrobrego (Wikimedia Commons)',
+    highlights: ['Szczecin', 'Świnoujście', 'Porty morskie'],
+  },
+}
+
+export const SECTOR_CHIPS = [
+  { id: 'energy', label: 'Energia', icon: 'zap' as const },
+  { id: 'water', label: 'Woda', icon: 'droplets' as const },
+  { id: 'telecom', label: 'Telekomunikacja', icon: 'wifi' as const },
+  { id: 'transport', label: 'Transport', icon: 'train' as const },
+  { id: 'emergency', label: 'Ratownictwo', icon: 'siren' as const },
+  { id: 'government', label: 'Administracja', icon: 'landmark' as const },
+]
+
+export function getVoivodeshipEmblem(regionId: string): string {
+  return `/regions/herbs/${regionId}.svg`
+}
+
+export function getVoivodeshipBrand(regionId: string): VoivodeshipBrand {
+  return VOIVODESHIP_BRANDING[regionId] ?? {
+    capital: '—',
+    sectorPl: 'Region',
+    tagline: 'Agregat danych',
+    accent: '#94A3B8',
+    accentSoft: 'rgba(148,163,184,0.10)',
+    crestFrom: '#334155',
+    crestTo: '#64748B',
+    initials: 'PL',
+    heroImage: regionPhoto(regionId),
+    imageCaption: 'Region Polski',
+    highlights: [],
+  }
+}

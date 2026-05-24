@@ -1,7 +1,7 @@
 import { SCENARIOS } from '@/data/scenarios'
 import { runCascadeBFS } from '@/services/cascadeEngine'
 import { computeScenarioCascade } from '@/services/scenarioEngine'
-import type { CascadeResult, IKObject, Incident, ScenarioDefinition, ScenarioRun } from '@/types'
+import type { CascadeResult, IKObject, Incident, ScenarioDefinition, ScenarioRun, Alert } from '@/types'
 
 export function findScenarioForIncident(incident: Incident): ScenarioDefinition | null {
   const byTitle = SCENARIOS.find(s => s.name === incident.title)
@@ -123,4 +123,32 @@ export function buildClosureNote(params: {
   const stamp = new Date().toISOString()
   const label = params.mode === 'resolved' ? 'RESOLVED' : 'CONTAINED'
   return `${params.incident.notes}\n[${label} ${stamp}] Operator: ${params.operator}\n${params.summary}`
+}
+
+/** Wszystkie alerty powiązane z incydentem — incidentId, alertIds lub węzły kaskady. */
+export function findAlertsBoundToIncident(incident: Incident, alerts: Alert[]): Alert[] {
+  const idSet = new Set(incident.alertIds)
+  return alerts.filter(alert => {
+    if (alert.status === 'resolved') return false
+    if (alert.incidentId === incident.id || idSet.has(alert.id)) return true
+    if (
+      (alert.source === 'scenario_engine' || alert.source === 'cascade_engine') &&
+      alert.affectedNodes.some(nodeId => incident.affectedObjectIds.includes(nodeId))
+    ) {
+      return true
+    }
+    return false
+  })
+}
+
+export function getActiveIncidents(incidents: Incident[]): Incident[] {
+  return incidents.filter(i => i.status === 'open' || i.status === 'contained')
+}
+
+export function getOpenIncident(incidents: Incident[]): Incident | null {
+  return incidents.find(i => i.status === 'open') ?? null
+}
+
+export function getPrimaryActiveIncident(incidents: Incident[]): Incident | null {
+  return getOpenIncident(incidents) ?? incidents.find(i => i.status === 'contained') ?? null
 }
