@@ -1,112 +1,73 @@
 {
-  "generatedAt": "2026-05-24T08:51:21.955Z",
-  "version": {
-    "name": "bastion",
-    "productName": "BASTION",
-    "description": "Offline-first centrum dowodzenia BASTION — infrastruktura krytyczna",
-    "author": "SpaceShield / m&m",
-    "homepage": "https://gitlab.com/michas7/bastion",
-    "version": "1.0.0",
-    "type": "module",
-    "main": "dist-electron/main.js",
-    "engines": {
-      "node": ">=20.19.0"
-    },
-    "scripts": {
-      "predev": "node scripts/ensure-node.mjs",
-      "prestart": "node scripts/ensure-node.mjs",
-      "prebuild": "node scripts/ensure-node.mjs",
-      "dev": "vite",
-      "build": "tsc -b && vite build",
-      "lint": "eslint .",
-      "preview": "vite preview",
-      "start": "node scripts/electron-dev.mjs",
-      "electron:dev": "node scripts/electron-dev.mjs",
-      "electron:build": "node scripts/electron-build.mjs",
-      "instalatory:build": "node scripts/build-instalatory.mjs",
-      "instalatory:build:all": "node scripts/build-instalatory.mjs -- --all",
-      "instalatory:copy": "node scripts/build-instalatory.mjs -- --copy-only",
-      "icons:generate": "node scripts/generate-app-icon.mjs",
-      "regions:fetch-photos": "node scripts/fetch-region-photos.mjs",
-      "regions:fetch-emblems": "node scripts/fetch-region-emblems.mjs",
-      "media:fetch-google": "node scripts/fetch-ik-google-images.mjs"
-    },
-    "dependencies": {
-      "@fontsource/inter": "^5.2.8",
-      "@fontsource/jetbrains-mono": "^5.2.8",
-      "@supabase/supabase-js": "^2.106.1",
-      "@tanstack/react-query": "^5.100.14",
-      "clsx": "^2.1.1",
-      "d3": "^7.9.0",
-      "date-fns": "^4.3.0",
-      "framer-motion": "^12.40.0",
-      "hls.js": "^1.6.16",
-      "html2canvas": "^1.4.1",
-      "idb": "^8.0.3",
-      "jspdf": "^4.2.1",
-      "leaflet": "^1.9.4",
-      "lucide-react": "^1.16.0",
-      "react": "^19.2.6",
-      "react-dom": "^19.2.6",
-      "react-leaflet": "^5.0.0",
-      "react-router-dom": "^7.15.1",
-      "tailwind-merge": "^3.6.0",
-      "zustand": "^5.0.13"
-    },
-    "devDependencies": {
-      "@eslint/js": "^10.0.1",
-      "@tailwindcss/vite": "^4.3.0",
-      "@types/d3": "^7.4.3",
-      "@types/leaflet": "^1.9.21",
-      "@types/node": "^24.12.3",
-      "@types/react": "^19.2.14",
-      "@types/react-dom": "^19.2.3",
-      "@vitejs/plugin-react": "^6.0.1",
-      "autoprefixer": "^10.5.0",
-      "concurrently": "^9.2.1",
-      "electron": "^42.2.0",
-      "electron-builder": "^26.8.1",
-      "esbuild": "^0.28.0",
-      "eslint": "^10.3.0",
-      "eslint-plugin-react-hooks": "^7.1.1",
-      "eslint-plugin-react-refresh": "^0.5.2",
-      "globals": "^17.6.0",
-      "postcss": "^8.5.15",
-      "tailwindcss": "^4.3.0",
-      "typescript": "~6.0.2",
-      "typescript-eslint": "^8.59.2",
-      "vite": "^8.0.12",
-      "vite-plugin-electron": "^0.29.1",
-      "vite-plugin-electron-renderer": "^0.14.7",
-      "wait-on": "^9.0.10"
-    }
-  },
+  "generatedAt": "2026-05-24T09:13:14.909Z",
+  "version": "1.0.0",
   "buildHost": "darwin-arm64",
   "artifacts": [
     {
       "platform": "linux",
-      "name": "BASTION-1.0.0-linux-aarch64.rpm"
+      "name": "BASTION-1.0.0-linux-aarch64.rpm",
+      "sizeBytes": 102567937,
+      "sha256": "bfa3654ee0084c9c855e42512f6a115df8ba877e8be832c416176ca8dccfaeb8"
     },
     {
       "platform": "linux",
-      "name": "BASTION-1.0.0-linux-x86_64.AppImage"
+      "name": "BASTION-1.0.0-linux-x86_64.AppImage",
+      "sizeBytes": 162598857,
+      "sha256": "5552d4507fc0e2e68c5bef113afd6ad834888ba006756685a46594981ac55799"
     },
     {
       "platform": "linux",
-      "name": "BASTION-1.0.0-linux-x86_64.rpm"
+      "name": "BASTION-1.0.0-linux-x86_64.rpm",
+      "sizeBytes": 107853133,
+      "sha256": "9b927eaa5e4d8bb7737ccc40090999c324385401b01facbb294a7520b9994020"
     },
     {
       "platform": "macos",
-      "name": "BASTION-1.0.0-mac-arm64.dmg"
+      "name": "BASTION-1.0.0-mac-arm64.dmg",
+      "sizeBytes": 155221304,
+      "sha256": "94681dd64458388b651e96db2c9d4c4ebf400ab02e1d87201c2c8c7bda123449"
     },
     {
       "platform": "macos",
-      "name": "BASTION-1.0.0-mac-x64.dmg"
+      "name": "BASTION-1.0.0-mac-x64.dmg",
+      "sizeBytes": 163404878,
+      "sha256": "832242c3b3d79aee61eb0ab8405773aa6abd2765319146c45a324ba77ac7cca2"
     },
     {
       "platform": "windows",
-      "name": "BASTION-Setup-1.0.0-win-x64.exe"
+      "name": "BASTION-Portable-1.0.0-win-arm64.exe",
+      "sizeBytes": 132174178,
+      "sha256": "c3d17835f44455a9258fcb67e2f1861f76d308aa97a35871c39d378fc39803aa"
+    },
+    {
+      "platform": "windows",
+      "name": "BASTION-Portable-1.0.0-win-x64.exe",
+      "sizeBytes": 131236359,
+      "sha256": "59cb1865319373bae98ed51ca5ed4d3380b5d4ec8ee2436ec122f27cc3a31e1a"
+    },
+    {
+      "platform": "windows",
+      "name": "BASTION-Setup-1.0.0-win-arm64.exe",
+      "sizeBytes": 132312454,
+      "sha256": "ec517ab7906413275697b937d22efa40057f60fe5a79690e73f686c7ee7caf86"
+    },
+    {
+      "platform": "windows",
+      "name": "BASTION-Setup-1.0.0-win-x64.exe",
+      "sizeBytes": 131374538,
+      "sha256": "e66e1a90b8c125ddfb1bf86dc858418e19681dafc7501297e684d29cb12a4cf9"
+    },
+    {
+      "platform": "windows",
+      "name": "BASTION-1.0.0-win-x64-portable.zip",
+      "sizeBytes": 185368275,
+      "sha256": "579fd0e1370fbd0327c5e1a5f38f7ee3f844fe2f94f3829f92df0722fcf3fe45"
     }
   ],
-  "missingPlatforms": []
+  "missingPlatforms": [],
+  "windowsNotes": {
+    "requiredOs": "Windows 10/11 64-bit (Intel/AMD) lub Windows 11 ARM64",
+    "lfsWarning": "Plik .exe musi mieć ~125 MB. Jeśli ma ~130 B — pobierz przez git lfs pull lub GitLab → Download raw.",
+    "portableFallback": "BASTION-*-win-x64-portable.zip — rozpakuj i uruchom BASTION.exe bez instalatora"
+  }
 }

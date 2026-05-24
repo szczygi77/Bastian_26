@@ -1,0 +1,58 @@
+# Budowa instalatorów na natywnych runnerach (Windows — najpewniejszy build NSIS).
+stages:
+  - build
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+.build_template:
+  stage: build
+  cache:
+    key: "${CI_JOB_NAME}-npm"
+    paths:
+      - .npm/
+  before_script:
+    - node -v
+    - npm ci
+  script:
+    - npm run build
+    - npx electron-builder --publish never
+    - node scripts/build-instalatory.mjs -- --copy-only
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - INSTALATORY/
+      - release/
+
+build:windows:
+  extends: .build_template
+  tags:
+    - saas-windows-medium-amd64
+  variables:
+    ELECTRON: "true"
+  script:
+    - npm run build
+    - npx electron-builder --win --x64 --arm64 --publish never
+    - node scripts/build-instalatory.mjs -- --copy-only
+
+build:macos:
+  extends: .build_template
+  tags:
+    - saas-macos-medium-m1
+  script:
+    - npm run build
+    - npx electron-builder --mac --publish never
+    - node scripts/build-instalatory.mjs -- --copy-only
+  rules:
+    - when: manual
+
+build:linux:
+  extends: .build_template
+  image: node:22-bookworm
+  script:
+    - apt-get update && apt-get install -y rpm zip
+    - npm run build
+    - npx electron-builder --linux --publish never
+    - node scripts/build-instalatory.mjs -- --copy-only
+  rules:
+    - when: manual

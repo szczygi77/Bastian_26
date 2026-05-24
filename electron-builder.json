@@ -34,20 +34,30 @@
     "target": [
       {
         "target": "nsis",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "portable",
         "arch": ["x64"]
       }
     ],
     "icon": "public/icon.png",
-    "artifactName": "BASTION-Setup-${version}-win-${arch}.${ext}"
+    "artifactName": "BASTION-${version}-win-${arch}.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "perMachine": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "BASTION",
     "installerLanguages": ["pl_PL", "en_US"],
-    "language": "1045"
+    "language": "1045",
+    "artifactName": "BASTION-Setup-${version}-win-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "BASTION-Portable-${version}-win-${arch}.${ext}"
   },
   "linux": {
     "target": [
