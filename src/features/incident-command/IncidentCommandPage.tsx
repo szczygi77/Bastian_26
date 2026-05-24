@@ -11,6 +11,7 @@ import { IncidentMapPanel } from '@/features/incident-command/IncidentMapPanel'
 import { IncidentTimeline } from '@/features/incident-command/IncidentTimeline'
 import { IncidentDecisionPanel } from '@/features/incident-command/IncidentDecisionPanel'
 import { IncidentDataSourcesStrip } from '@/features/incident-command/IncidentDataSourcesStrip'
+import { IncidentReportActions, logReportExport } from '@/features/incident-command/IncidentReportActions'
 
 export function IncidentCommandPage() {
   const {
@@ -157,7 +158,26 @@ export function IncidentCommandPage() {
           <div className="icm-page__kicker">INCIDENT COMMAND MODE</div>
           <h1 className="icm-page__title">{incident.title}</h1>
         </div>
-        <BadgeLike status={incident.status} />
+        <div className="icm-page__header-actions">
+          <IncidentReportActions
+            incident={incident}
+            cascadeResult={cascadeResult}
+            alerts={incidentAlerts}
+            recommendations={incidentRecs}
+            auditEntries={auditEntries}
+            publicDataSources={publicDataSources}
+            ikObjects={ikObjects}
+            operator={operator?.name ?? 'OPERATOR'}
+            mode={mode}
+            onExported={details => {
+              const entry = logReportExport(details, incident.id, operator?.name ?? 'OPERATOR', mode)
+              addAuditEntry(entry)
+              pulseEventHeartbeat()
+              toast({ title: 'Raport wygenerowany', description: details, variant: 'success' })
+            }}
+          />
+          <BadgeLike status={incident.status} />
+        </div>
       </header>
 
       <div className="icm-page__grid">

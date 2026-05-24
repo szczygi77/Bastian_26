@@ -1,11 +1,100 @@
-import type { ReportDefinition, ReportType, CascadeResult, Alert, DroneMission, IKObject } from '@/types'
+import type {
+  ReportDefinition,
+  ReportType,
+  CascadeResult,
+  Alert,
+  DroneMission,
+  IKObject,
+  Incident,
+  AuditEntry,
+  PublicDataSourceStatus,
+  Recommendation,
+} from '@/types'
 import { generateId, formatTimestamp } from '@/utils/format'
+
+function buildPublicDataEvidenceReport(
+  sources: PublicDataSourceStatus[],
+  operator: string,
+): Record<string, unknown> {
+  return {
+    reportType: 'PUBLIC_DATA_EVIDENCE_REPORT',
+    generatedBy: operator,
+    generatedAt: new Date().toISOString(),
+    sources: sources.map(s => ({
+      name: s.sourceName,
+      id: s.sourceId,
+      status: s.status,
+      lastSync: s.lastSync?.toISOString() ?? null,
+      recordsFetched: s.recordsFetched,
+      authMethod: s.authMethod,
+      errorMessage: s.errorMessage,
+      cacheTtlMinutes: s.cacheTtlMinutes,
+    })),
+    integrityNote: 'Status LIVE oznacza realny fetch w tej sesji. CACHED/STALE/ERROR/MISSING_KEY nie są prezentowane jako live.',
+  }
+}
+
+function buildIncidentBundleReport(params: {
+  incident: Incident
+  cascade: CascadeResult
+  alerts: Alert[]
+  objects: IKObject[]
+  recommendations: Recommendation[]
+  auditEntries: AuditEntry[]
+  sources: PublicDataSourceStatus[]
+  operator: string
+}): Record<string, unknown> {
+  const { incident, cascade, alerts, objects, recommendations, auditEntries, sources, operator } = params
+  const triggerObj = objects.find(o => o.id === cascade.incidentObjectId)
+
+  return {
+    reportType: 'INCIDENT_BUNDLE_REPORT',
+    classification: 'RESTRICTED',
+    generatedBy: operator,
+    generatedAt: new Date().toISOString(),
+    incident: {
+      id: incident.id,
+      title: incident.title,
+      severity: incident.severity,
+      status: incident.status,
+      startedAt: incident.startedAt.toISOString(),
+      notes: incident.notes,
+      triggerObject: triggerObj?.name,
+    },
+    cascade: buildCascadeReport(cascade, objects, operator),
+    alerts: alerts.map(a => ({
+      id: a.id,
+      title: a.title,
+      severity: a.severity,
+      status: a.status,
+      source: a.source,
+      timestamp: a.timestamp.toISOString(),
+    })),
+    recommendations: recommendations.map(r => ({
+      id: r.id,
+      summary: r.summary,
+      confidence: r.confidence,
+      actions: r.actions.map(a => ({ id: a.id, description: a.description, approved: a.approved })),
+    })),
+    auditTrail: auditEntries
+      .filter(e => e.incidentId === incident.id)
+      .slice(0, 50)
+      .map(e => ({
+        sequenceId: e.sequenceId,
+        action: e.action,
+        details: e.details,
+        timestamp: e.timestamp.toISOString(),
+        chainHash: e.chainHash,
+      })),
+    publicDataSources: buildPublicDataEvidenceReport(sources, operator).sources,
+  }
+}
 
 function buildIncidentReport(
   cascade: CascadeResult,
   alerts: Alert[],
   objects: IKObject[],
-  operator: string
+  operator: string,
 ): Record<string, unknown> {
   const triggerObj = objects.find(o => o.id === cascade.incidentObjectId)
   return {
@@ -103,8 +192,23 @@ export function generateReport(params: {
   missions?: DroneMission[]
   objects: IKObject[]
   operator: string
+  incident?: Incident
+  recommendations?: Recommendation[]
+  auditEntries?: AuditEntry[]
+  publicDataSources?: PublicDataSourceStatus[]
 }): ReportDefinition {
-  const { type, cascade, alerts, missions, objects, operator } = params
+  const {
+    type,
+    cascade,
+    alerts,
+    missions,
+    objects,
+    operator,
+    incident,
+    recommendations,
+    auditEntries,
+    publicDataSources,
+  } = params
 
   let content: Record<string, unknown> = {}
   let title = ''
@@ -112,11 +216,28 @@ export function generateReport(params: {
   switch (type) {
     case 'incident':
       title = 'Raport Incydentu'
-      content = cascade ? buildIncidentReport(cascade, alerts ?? [], objects, operator) : {}
+      if (incident && cascade && publicDataSources) {
+        content = buildIncidentBundleReport({
+          incident,
+          cascade,
+          alerts: alerts ?? [],
+          objects,
+          recommendations: recommendations ?? [],
+          auditEntries: auditEntries ?? [],
+          sources: publicDataSources,
+          operator,
+        })
+      } else {
+        content = cascade ? buildIncidentReport(cascade, alerts ?? [], objects, operator) : {}
+      }
       break
     case 'cascade':
       title = 'Raport Analizy Kaskadowej'
       content = cascade ? buildCascadeReport(cascade, objects, operator) : {}
+      break
+    case 'public_data':
+      title = 'Raport Źródeł Publicznych'
+      content = buildPublicDataEvidenceReport(publicDataSources ?? [], operator)
       break
     case 'drone_mission':
       title = 'Raport Misji Dronowych (Skymarshal)'
@@ -141,6 +262,19 @@ export function generateReport(params: {
     content,
     exportFormat: 'json',
   }
+}
+
+export function downloadReportFile(report: ReportDefinition, format: 'json' | 'html' = 'json'): void {
+  const body = format === 'html' ? renderReportHTML(report) : JSON.stringify(report, null, 2)
+  const mime = format === 'html' ? 'text/html' : 'application/json'
+  const ext = format === 'html' ? 'html' : 'json'
+  const blob = new Blob([body], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `bastion-${report.type}-${report.id}.${ext}`
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 export function renderReportHTML(report: ReportDefinition): string {

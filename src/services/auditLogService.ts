@@ -3,9 +3,19 @@ import { generateId } from '@/utils/format'
 import { saveAuditEntry } from '@/services/databaseService'
 
 let inMemoryLog: AuditEntry[] = []
+let sequenceCounter = 0
+let lastChainHash = 'GENESIS'
 
 export function setAuditLog(entries: AuditEntry[]): void {
-  inMemoryLog = [...entries]
+  const normalized = entries.map((entry, index) => ({
+    ...entry,
+    sequenceId: entry.sequenceId ?? entries.length - index,
+    chainHash: entry.chainHash ?? entry.exportHash,
+    previousHash: entry.previousHash ?? 'GENESIS',
+  }))
+  inMemoryLog = [...normalized].sort((a, b) => b.sequenceId - a.sequenceId)
+  sequenceCounter = normalized.reduce((max, e) => Math.max(max, e.sequenceId ?? 0), 0)
+  lastChainHash = normalized[0]?.chainHash ?? normalized[0]?.exportHash ?? 'GENESIS'
 }
 
 export function logAction(params: {
@@ -21,11 +31,18 @@ export function logAction(params: {
     ['scenario_start', 'alert_escalate', 'drone_dispatch'].includes(params.action)
       ? 'warning'
       : ['alert_resolve', 'recommendation_approve'].includes(params.action)
-      ? 'critical'
-      : 'info'
+        ? 'critical'
+        : 'info'
+
+  sequenceCounter += 1
+  const previousHash = lastChainHash
+  const payload = `${sequenceCounter}|${params.action}|${params.details}|${params.operator}|${Date.now()}`
+  const exportHash = generateHash(payload)
+  const chainHash = generateHash(`${previousHash}:${exportHash}`)
 
   const entry: AuditEntry = {
     id: `audit-${generateId()}`,
+    sequenceId: sequenceCounter,
     timestamp: new Date(),
     operator: params.operator,
     action: params.action,
@@ -35,9 +52,12 @@ export function logAction(params: {
     alertId: params.alertId,
     mode: params.mode,
     severity,
-    exportHash: generateHash(params.details + params.operator + Date.now()),
+    exportHash,
+    previousHash,
+    chainHash,
   }
 
+  lastChainHash = chainHash
   inMemoryLog = [entry, ...inMemoryLog]
   void saveAuditEntry(entry).catch(() => {})
   return entry
@@ -64,11 +84,20 @@ export function filterAuditLog(filters: {
 
 export function exportAuditLog(format: 'json' | 'csv'): string {
   if (format === 'json') {
-    return JSON.stringify(inMemoryLog, null, 2)
+    return JSON.stringify(
+      {
+        exportedAt: new Date().toISOString(),
+        chainHead: lastChainHash,
+        entries: inMemoryLog,
+      },
+      null,
+      2,
+    )
   }
-  const headers = 'timestamp,operator,action,severity,details,mode,exportHash'
+  const headers = 'sequenceId,timestamp,operator,action,severity,details,mode,exportHash,chainHash,previousHash'
   const rows = inMemoryLog.map(e =>
     [
+      e.sequenceId,
       e.timestamp.toISOString(),
       e.operator,
       e.action,
@@ -76,9 +105,27 @@ export function exportAuditLog(format: 'json' | 'csv'): string {
       `"${e.details.replace(/"/g, '""')}"`,
       e.mode,
       e.exportHash ?? '',
-    ].join(',')
+      e.chainHash ?? '',
+      e.previousHash ?? '',
+    ].join(','),
   )
   return [headers, ...rows].join('\n')
+}
+
+export function exportSignedAuditJson(): string {
+  const head = lastChainHash
+  const signature = generateHash(`${head}:${inMemoryLog.length}:${Date.now()}`)
+  return JSON.stringify(
+    {
+      signedAt: new Date().toISOString(),
+      chainHead: head,
+      entryCount: inMemoryLog.length,
+      signature,
+      entries: inMemoryLog,
+    },
+    null,
+    2,
+  )
 }
 
 function generateHash(input: string): string {

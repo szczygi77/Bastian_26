@@ -260,6 +260,7 @@ export type AuditAction =
 
 export interface AuditEntry {
   id: string
+  sequenceId: number
   timestamp: Date
   operator: string
   action: AuditAction
@@ -269,6 +270,8 @@ export interface AuditEntry {
   alertId?: string
   mode: SystemMode
   exportHash?: string
+  chainHash?: string
+  previousHash?: string
   severity: 'info' | 'warning' | 'critical'
 }
 
@@ -365,6 +368,7 @@ export type ReportType =
   | 'escalation'
   | 'drone_mission'
   | 'compliance'
+  | 'public_data'
 
 export interface ReportDefinition {
   id: string

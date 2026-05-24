@@ -1,5 +1,6 @@
 import { envConfig } from '@/config/env'
 import type { OpenSkyFlight, SyncStatus } from '@/types'
+import type { AdapterFetchMode } from '@/adapters/adapterState'
 
 /** Bbox Stalowa Wola (zgodny z konfiguracją użytkownika) */
 const BBOX = { minLat: 50.5, maxLat: 50.7, minLon: 22.0, maxLon: 22.2 }
@@ -7,6 +8,8 @@ const TIMEOUT_MS = 12000
 
 let lastSync: Date | null = null
 let cachedFlights: OpenSkyFlight[] = []
+let lastFetchMode: AdapterFetchMode = 'empty'
+let lastError: string | undefined
 
 function buildAuthHeaders(): HeadersInit {
   const headers: HeadersInit = { Accept: 'application/json' }
@@ -17,9 +20,7 @@ function buildAuthHeaders(): HeadersInit {
   }
 
   if (envConfig.openskyUsername && envConfig.openskyPassword) {
-    const encoded = btoa(
-      `${envConfig.openskyUsername}:${envConfig.openskyPassword}`
-    )
+    const encoded = btoa(`${envConfig.openskyUsername}:${envConfig.openskyPassword}`)
     headers.Authorization = `Basic ${encoded}`
     return headers
   }
@@ -63,48 +64,41 @@ export async function fetchOpenSkyFlights(): Promise<OpenSkyFlight[]> {
 
     cachedFlights = flights
     lastSync = new Date()
+    lastFetchMode = 'live'
+    lastError = undefined
     return flights
-  } catch {
+  } catch (error) {
     clearTimeout(timeoutId)
-    return cachedFlights.length > 0 ? cachedFlights : getMockFlights()
+    lastError = error instanceof Error ? error.message : 'fetch failed'
+    if (cachedFlights.length > 0) {
+      lastFetchMode = 'cached'
+      return cachedFlights
+    }
+    lastFetchMode = 'error'
+    return []
   }
-}
-
-function getMockFlights(): OpenSkyFlight[] {
-  return [
-    {
-      icao24: 'abc123',
-      callsign: 'LOT431',
-      latitude: 50.61,
-      longitude: 22.12,
-      altitude: 8500,
-      velocity: 820,
-      heading: 270,
-      lastContact: Date.now() / 1000,
-    },
-    {
-      icao24: 'def456',
-      callsign: 'RYR8821',
-      latitude: 50.55,
-      longitude: 22.08,
-      altitude: 11000,
-      velocity: 890,
-      heading: 85,
-      lastContact: Date.now() / 1000,
-    },
-  ]
 }
 
 export function getOpenSkySyncStatus(): SyncStatus {
-  const dataAge = lastSync
-    ? Math.floor((Date.now() - lastSync.getTime()) / 60000)
-    : 999
+  const dataAge = lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 60000) : 999
+  const status =
+    lastFetchMode === 'error'
+      ? 'error'
+      : lastFetchMode === 'cached'
+        ? 'offline'
+        : dataAge < 5
+          ? 'synced'
+          : 'offline'
 
-  return {
-    status: dataAge < 5 ? 'synced' : 'offline',
-    lastSync,
-    dataAge,
-  }
+  return { status, lastSync, dataAge }
+}
+
+export function getOpenSkyFetchMode(): AdapterFetchMode {
+  return lastFetchMode
+}
+
+export function getOpenSkyLastError(): string | undefined {
+  return lastError
 }
 
 export { cachedFlights }

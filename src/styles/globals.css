@@ -3144,6 +3144,20 @@ html.electron-macos {
   background: rgba(0,229,255,0.04);
 }
 
+.icm-page__header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.icm-report-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1400px) {
   .icm-page__grid {
     grid-template-columns: 1fr;

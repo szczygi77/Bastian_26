@@ -1,4 +1,5 @@
 import type { FIRMSAlert, SyncStatus } from '@/types'
+import type { AdapterFetchMode } from '@/adapters/adapterState'
 
 /** Stalowa Wola — west,south,east,north */
 const AREA_BBOX = '21.70,50.30,22.50,50.90'
@@ -7,10 +8,30 @@ const TIMEOUT_MS = 15000
 
 let lastSync: Date | null = null
 let cachedAlerts: FIRMSAlert[] = []
+let lastFetchMode: AdapterFetchMode = 'empty'
+let lastError: string | undefined
+
+function readCache(): FIRMSAlert[] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { alerts } = JSON.parse(raw) as { alerts: FIRMSAlert[] }
+    return alerts.map(a => ({ ...a, detectedAt: new Date(a.detectedAt) }))
+  } catch {
+    return null
+  }
+}
 
 export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
   if (!apiKey) {
-    return getFromCacheOrMock()
+    lastFetchMode = 'missing_key'
+    lastError = 'VITE_FIRMS_API_KEY not configured'
+    const cached = readCache()
+    if (cached) {
+      cachedAlerts = cached
+      return cached
+    }
+    return []
   }
 
   const controller = new AbortController()
@@ -27,6 +48,8 @@ export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
     const lines = text.trim().split('\n')
     if (lines.length < 2) {
       lastSync = new Date()
+      lastFetchMode = 'live'
+      lastError = undefined
       cachedAlerts = []
       return []
     }
@@ -58,61 +81,44 @@ export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
 
     cachedAlerts = alerts
     lastSync = new Date()
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ alerts, timestamp: Date.now() })
-    )
+    lastFetchMode = 'live'
+    lastError = undefined
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ alerts, timestamp: Date.now() }))
     return alerts
-  } catch {
+  } catch (error) {
     clearTimeout(timeoutId)
-    return getFromCacheOrMock()
-  }
-}
-
-function getFromCacheOrMock(): FIRMSAlert[] {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) {
-      const { alerts } = JSON.parse(raw) as { alerts: FIRMSAlert[] }
-      cachedAlerts = alerts.map(a => ({
-        ...a,
-        detectedAt: new Date(a.detectedAt),
-      }))
-      return cachedAlerts
+    lastError = error instanceof Error ? error.message : 'fetch failed'
+    const cached = readCache()
+    if (cached) {
+      lastFetchMode = 'cached'
+      cachedAlerts = cached
+      return cached
     }
-  } catch {
-    /* ignore */
+    lastFetchMode = 'error'
+    return cachedAlerts
   }
-
-  if (cachedAlerts.length > 0) return cachedAlerts
-  lastSync = new Date()
-  return getMockAlerts()
-}
-
-function getMockAlerts(): FIRMSAlert[] {
-  return [
-    {
-      id: 'firms-mock-1',
-      latitude: 50.59,
-      longitude: 22.06,
-      brightness: 340,
-      confidence: 75,
-      detectedAt: new Date(),
-      instrument: 'VIIRS (MOCK)',
-    },
-  ]
 }
 
 export function getFIRMSSyncStatus(): SyncStatus {
-  const dataAge = lastSync
-    ? Math.floor((Date.now() - lastSync.getTime()) / 60000)
-    : 999
+  const dataAge = lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 60000) : 999
+  const status =
+    lastFetchMode === 'missing_key' || lastFetchMode === 'error'
+      ? 'error'
+      : lastFetchMode === 'cached'
+        ? 'offline'
+        : dataAge < 120
+          ? 'synced'
+          : 'offline'
 
-  return {
-    status: dataAge < 120 ? 'synced' : 'offline',
-    lastSync,
-    dataAge,
-  }
+  return { status, lastSync, dataAge }
+}
+
+export function getFirmsFetchMode(): AdapterFetchMode {
+  return lastFetchMode
+}
+
+export function getFirmsLastError(): string | undefined {
+  return lastError
 }
 
 export { cachedAlerts }

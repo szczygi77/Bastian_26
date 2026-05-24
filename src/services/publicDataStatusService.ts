@@ -1,11 +1,22 @@
-import { getWeatherSyncStatus } from '@/adapters/weatherAdapter'
-import { getFIRMSSyncStatus } from '@/adapters/firmsAdapter'
-import { getOpenSkySyncStatus } from '@/adapters/openskyAdapter'
+import { getWeatherFetchMode, getWeatherLastError, getWeatherSyncStatus } from '@/adapters/weatherAdapter'
+import { getFirmsFetchMode, getFirmsLastError, getFIRMSSyncStatus } from '@/adapters/firmsAdapter'
+import { getOpenSkyFetchMode, getOpenSkyLastError, getOpenSkySyncStatus } from '@/adapters/openskyAdapter'
 import { getSentinelSyncStatus } from '@/adapters/sentinelAdapter'
 import { getCachedIkCoordinateCount, getOsmSyncStatus } from '@/adapters/osmAdapter'
 import { envConfig, hasCdseCredentials, hasOpenSkyAuth } from '@/config/env'
 import { IK_GEOCODE_SPECS } from '@/data/ikGeocoding'
 import type { PublicDataSourceStatus, PublicSourceStatus } from '@/types'
+import type { AdapterFetchMode } from '@/adapters/adapterState'
+
+function mapAdapterMode(mode: AdapterFetchMode, online: boolean): PublicSourceStatus {
+  if (!online && mode !== 'missing_key') return 'offline'
+  if (mode === 'live') return 'live'
+  if (mode === 'cached') return 'cached'
+  if (mode === 'missing_key') return 'missing_key'
+  if (mode === 'mock') return 'mock'
+  if (mode === 'error' || mode === 'empty') return 'error'
+  return 'stale'
+}
 
 function resolveAgeStatus(dataAgeMinutes: number, online: boolean): PublicSourceStatus {
   if (!online) return 'offline'
@@ -44,28 +55,6 @@ export function getPublicDataSources(online: boolean): PublicDataSourceStatus[] 
   const osm = getOsmSyncStatus(getCachedIkCoordinateCount(), IK_GEOCODE_SPECS.length)
   const sentinel = getSentinelSyncStatus()
 
-  const weatherStatus: PublicSourceStatus = !online
-    ? 'offline'
-    : weather.lastSync
-      ? resolveAgeStatus(weather.dataAge, online)
-      : 'error'
-
-  const firmsStatus: PublicSourceStatus = !envConfig.firmsApiKey
-    ? 'missing_key'
-    : !online
-      ? 'offline'
-      : firms.lastSync
-        ? resolveAgeStatus(firms.dataAge, online)
-        : 'error'
-
-  const openskyStatus: PublicSourceStatus = !online
-    ? 'offline'
-    : opensky.lastSync
-      ? resolveAgeStatus(opensky.dataAge, online)
-      : hasOpenSkyAuth()
-        ? 'error'
-        : 'cached'
-
   const osmStatus: PublicSourceStatus = !online
     ? 'offline'
     : osm.lastSync
@@ -83,32 +72,36 @@ export function getPublicDataSources(online: boolean): PublicDataSourceStatus[] 
         : 'error'
 
   return [
-    buildSource('Open-Meteo', 'weather', weatherStatus, weather.lastSync, weather.lastSync ? 1 : 0, 'public'),
+    buildSource(
+      'Open-Meteo',
+      'weather',
+      mapAdapterMode(getWeatherFetchMode(), online),
+      weather.lastSync,
+      weather.lastSync ? 1 : 0,
+      'public',
+      getWeatherLastError(),
+    ),
     buildSource(
       'NASA FIRMS',
       'firms',
-      firmsStatus,
+      envConfig.firmsApiKey
+        ? mapAdapterMode(getFirmsFetchMode(), online)
+        : 'missing_key',
       firms.lastSync,
-      firmsStatus === 'missing_key' ? 0 : null,
+      getFirmsFetchMode() === 'missing_key' ? 0 : null,
       envConfig.firmsApiKey ? 'MAP_KEY' : undefined,
-      firmsStatus === 'missing_key' ? 'VITE_FIRMS_API_KEY not configured' : undefined,
+      getFirmsLastError() ?? (envConfig.firmsApiKey ? undefined : 'VITE_FIRMS_API_KEY not configured'),
     ),
     buildSource(
       'OpenSky Network',
       'opensky',
-      openskyStatus,
+      mapAdapterMode(getOpenSkyFetchMode(), online),
       opensky.lastSync,
       null,
       hasOpenSkyAuth() ? 'basic/bearer' : 'public (rate-limited)',
+      getOpenSkyLastError(),
     ),
-    buildSource(
-      'OpenStreetMap / Overpass',
-      'osm',
-      osmStatus,
-      osm.lastSync,
-      getCachedIkCoordinateCount(),
-      'public',
-    ),
+    buildSource('OpenStreetMap / Overpass', 'osm', osmStatus, osm.lastSync, getCachedIkCoordinateCount(), 'public'),
     buildSource(
       'Copernicus CDSE',
       'sentinel',

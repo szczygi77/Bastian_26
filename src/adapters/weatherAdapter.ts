@@ -1,4 +1,5 @@
 import type { WeatherData, SyncStatus } from '@/types'
+import type { AdapterFetchMode } from '@/adapters/adapterState'
 
 const STALOWA_WOLA_LAT = 50.579
 const STALOWA_WOLA_LON = 22.040
@@ -7,6 +8,8 @@ const TIMEOUT_MS = 10000
 
 let lastSync: Date | null = null
 let cachedData: WeatherData | null = null
+let lastFetchMode: AdapterFetchMode = 'empty'
+let lastError: string | undefined
 
 function buildForecastUrl(): string {
   const params = new URLSearchParams({
@@ -36,6 +39,31 @@ function buildForecastUrl(): string {
   return `https://api.open-meteo.com/v1/forecast?${params}`
 }
 
+function readCache(): WeatherData | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { data } = JSON.parse(raw) as { data: WeatherData }
+    return { ...data, lastUpdate: new Date(data.lastUpdate) }
+  } catch {
+    return null
+  }
+}
+
+function unavailableWeather(reason: string): WeatherData {
+  return {
+    temperature: 0,
+    windSpeed: 0,
+    windDirection: 0,
+    precipitation: 0,
+    visibility: 0,
+    condition: reason,
+    lastUpdate: new Date(),
+    cloudCover: 0,
+    rainMm: 0,
+  }
+}
+
 export async function fetchWeather(): Promise<WeatherData> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -49,7 +77,6 @@ export async function fetchWeather(): Promise<WeatherData> {
     const json = await res.json()
     const current = json.current
     const hourly = json.hourly
-
     const hIdx = hourly?.time?.length ? hourly.time.length - 1 : 0
 
     const data: WeatherData = {
@@ -68,38 +95,21 @@ export async function fetchWeather(): Promise<WeatherData> {
 
     cachedData = data
     lastSync = new Date()
+    lastFetchMode = 'live'
+    lastError = undefined
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }))
     return data
-  } catch {
+  } catch (error) {
     clearTimeout(timeoutId)
-    return getFromCacheOrMock()
-  }
-}
-
-function getFromCacheOrMock(): WeatherData {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) {
-      const { data } = JSON.parse(raw)
-      return { ...data, lastUpdate: new Date(data.lastUpdate) }
+    lastError = error instanceof Error ? error.message : 'fetch failed'
+    const cached = readCache() ?? cachedData
+    if (cached) {
+      lastFetchMode = 'cached'
+      cachedData = cached
+      return cached
     }
-  } catch {
-    /* ignore */
-  }
-  return getMockWeather()
-}
-
-function getMockWeather(): WeatherData {
-  return {
-    temperature: 14.2,
-    windSpeed: 18,
-    windDirection: 270,
-    precipitation: 0,
-    visibility: 8000,
-    condition: 'Pochmurno',
-    lastUpdate: new Date(),
-    cloudCover: 45,
-    rainMm: 0,
+    lastFetchMode = 'error'
+    return unavailableWeather('Brak danych pogodowych')
   }
 }
 
@@ -116,11 +126,24 @@ function weatherCodeToCondition(code: number): string {
 
 export function getWeatherSyncStatus(): SyncStatus {
   const dataAge = lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 60000) : 999
-  return {
-    status: dataAge < 30 ? 'synced' : dataAge < 120 ? 'synced' : 'offline',
-    lastSync,
-    dataAge,
-  }
+  const status =
+    lastFetchMode === 'error' || lastFetchMode === 'empty'
+      ? 'error'
+      : lastFetchMode === 'cached'
+        ? 'offline'
+        : dataAge < 120
+          ? 'synced'
+          : 'offline'
+
+  return { status, lastSync, dataAge }
+}
+
+export function getWeatherFetchMode(): AdapterFetchMode {
+  return lastFetchMode
+}
+
+export function getWeatherLastError(): string | undefined {
+  return lastError
 }
 
 export { cachedData }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FileText, Download, Filter, Search } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { exportAuditLog } from '@/services/auditLogService'
+import { exportAuditLog, exportSignedAuditJson } from '@/services/auditLogService'
 import { formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -55,6 +55,17 @@ export function AuditLog() {
     URL.revokeObjectURL(url)
   }
 
+  function handleSignedExport() {
+    const data = exportSignedAuditJson()
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bastion-audit-signed-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const severityColors = { info: 'text-[#94A3B8]', warning: 'text-[#F59E0B]', critical: 'text-[#EF4444]' }
 
   return (
@@ -70,6 +81,9 @@ export function AuditLog() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
               <Download size={11} /> JSON
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSignedExport}>
+              <Download size={11} /> Signed JSON
             </Button>
           </>
         }
@@ -103,7 +117,7 @@ export function AuditLog() {
         <table className="ui-table">
           <thead>
             <tr>
-              {['TIMESTAMP', 'OPERATOR', 'ACTION', 'SEVERITY', 'MODE', 'HASH', 'DETAILS'].map(h => (
+              {['SEQ', 'TIMESTAMP', 'OPERATOR', 'ACTION', 'SEVERITY', 'MODE', 'CHAIN', 'DETAILS'].map(h => (
                 <th key={h}>{h}</th>
               ))}
             </tr>
@@ -111,7 +125,7 @@ export function AuditLog() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-[11px] font-mono text-[#66778B]">
+                <td colSpan={8} className="text-center py-12 text-[11px] font-mono text-[#66778B]">
                   Brak wpisów
                 </td>
               </tr>
@@ -121,6 +135,7 @@ export function AuditLog() {
                   key={entry.id}
                   className={i % 2 === 0 ? '' : 'bg-white/[0.01]'}
                 >
+                  <td className="text-[10px] font-mono text-[#66778B]">{entry.sequenceId}</td>
                   <td className="text-[10px] font-mono text-[#66778B] whitespace-nowrap">
                     {formatTimestamp(entry.timestamp)}
                   </td>
@@ -139,7 +154,7 @@ export function AuditLog() {
                     </Badge>
                   </td>
                   <td className="text-[10px] font-mono text-[#66778B]">
-                    {entry.exportHash ?? '—'}
+                    {entry.chainHash ?? entry.exportHash ?? '—'}
                   </td>
                   <td className="text-[11px] font-mono text-[#94A3B8] max-w-xs truncate">
                     {entry.details}
