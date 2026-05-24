@@ -429,6 +429,9 @@ export interface Recommendation {
   actions: RecommendationAction[]
   confidence: number
   reasoning: string
+  whyThisAction?: string
+  ifIgnored?: string
+  affectedNodes?: string[]
   requiresApproval: boolean
   approvedBy?: string
   approvedAt?: Date

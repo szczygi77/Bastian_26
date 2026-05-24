@@ -134,6 +134,32 @@ export function DecisionSupport() {
                   <p className="text-[11px] font-mono text-[#94A3B8] leading-relaxed">{rec.reasoning}</p>
                 </div>
 
+                {rec.whyThisAction && (
+                  <div className="ui-panel" style={{ background: 'rgba(0,229,255,0.04)', border: '1px solid rgba(0,229,255,0.15)', marginBottom: 12, padding: '12px 14px' }}>
+                    <div className="text-[9px] font-mono text-[#00E5FF] uppercase tracking-wider mb-1">WHY THIS ACTION?</div>
+                    <p className="text-[11px] font-mono text-[#94A3B8]">{rec.whyThisAction}</p>
+                  </div>
+                )}
+
+                {rec.ifIgnored && (
+                  <div className="ui-panel" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', marginBottom: 12, padding: '12px 14px' }}>
+                    <div className="text-[9px] font-mono text-[#EF4444] uppercase tracking-wider mb-1">WHAT HAPPENS IF IGNORED?</div>
+                    <p className="text-[11px] font-mono text-[#94A3B8]">{rec.ifIgnored}</p>
+                  </div>
+                )}
+
+                {rec.affectedNodes && rec.affectedNodes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {rec.affectedNodes.map(id => (
+                      <Badge key={id} variant="orange">{id.toUpperCase()}</Badge>
+                    ))}
+                  </div>
+                )}
+
+                {rec.requiresApproval && (
+                  <Badge variant="orange" className="mb-4">HUMAN APPROVAL REQUIRED</Badge>
+                )}
+
                 {/* Actions */}
                 {isExpanded && (
                   <div className="ui-stack" style={{ gap: 10, marginBottom: 16 }}>

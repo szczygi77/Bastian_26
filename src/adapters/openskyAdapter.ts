@@ -1,9 +1,11 @@
 import { envConfig } from '@/config/env'
 import type { OpenSkyFlight, SyncStatus } from '@/types'
 import type { AdapterFetchMode } from '@/adapters/adapterState'
+import { readApiCache, writeApiCache } from '@/services/publicApiCache'
 
 /** Bbox Stalowa Wola (zgodny z konfiguracją użytkownika) */
 const BBOX = { minLat: 50.5, maxLat: 50.7, minLon: 22.0, maxLon: 22.2 }
+const CACHE_SOURCE = 'opensky'
 const TIMEOUT_MS = 12000
 
 let lastSync: Date | null = null
@@ -26,6 +28,16 @@ function buildAuthHeaders(): HeadersInit {
   }
 
   return headers
+}
+
+async function readCacheAsync(): Promise<OpenSkyFlight[] | null> {
+  if (cachedFlights.length > 0) return cachedFlights
+  const cached = await readApiCache<OpenSkyFlight[]>(CACHE_SOURCE)
+  if (!cached) return null
+  cachedFlights = cached.data
+  lastFetchMode = 'cached'
+  lastSync = new Date(cached.cachedAt)
+  return cached.data
 }
 
 export async function fetchOpenSkyFlights(): Promise<OpenSkyFlight[]> {
@@ -66,10 +78,17 @@ export async function fetchOpenSkyFlights(): Promise<OpenSkyFlight[]> {
     lastSync = new Date()
     lastFetchMode = 'live'
     lastError = undefined
+    await writeApiCache(CACHE_SOURCE, flights, 5)
     return flights
   } catch (error) {
     clearTimeout(timeoutId)
     lastError = error instanceof Error ? error.message : 'fetch failed'
+    const cached = await readCacheAsync()
+    if (cached && cached.length > 0) {
+      lastFetchMode = 'cached'
+      cachedFlights = cached
+      return cached
+    }
     if (cachedFlights.length > 0) {
       lastFetchMode = 'cached'
       return cachedFlights

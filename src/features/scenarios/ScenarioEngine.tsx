@@ -3,7 +3,7 @@ import { Play, Square, AlertTriangle, Clock, Zap, ShieldAlert, Flame, Waves, Cro
 import { useAppStore } from '@/store/useAppStore'
 import { SCENARIOS } from '@/data/scenarios'
 import { getImpactTimeline } from '@/services/cascadeEngine'
-import { buildScenarioLaunchResult } from '@/services/scenarioEngine'
+import { runCinematicScenarioLaunch } from '@/services/cinematicScenarioFlow'
 import { logAction } from '@/services/auditLogService'
 import { generateId, formatDuration, severityColor } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -11,7 +11,7 @@ import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
-import type { ScenarioDefinition, ScenarioRun } from '@/types'
+import type { ScenarioDefinition, ScenarioRun, Alert } from '@/types'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Zap, Shield: ShieldAlert, Droplets, AlertTriangle, WifiOff, Flame, Waves, Crosshair, Target,
@@ -26,6 +26,7 @@ export function ScenarioEngine() {
   } = useAppStore()
 
   const [running, setRunning] = useState(false)
+  const [cinematicStep, setCinematicStep] = useState<string | null>(null)
   const [selectedScenario, setSelectedScenario] = useState<ScenarioDefinition | null>(null)
   const [completedRun, setCompletedRun] = useState<ScenarioRun | null>(null)
 
@@ -53,37 +54,45 @@ export function ScenarioEngine() {
     })
     addAuditEntry(auditEntry)
 
-    // Set trigger object status
-    updateObjectStatus(scenario.triggerObjectId, scenario.initialStatus)
-    if (scenario.additionalAffected) {
-      for (const id of scenario.additionalAffected) updateObjectStatus(id, 'degraded')
+    try {
+      const result = await runCinematicScenarioLaunch({
+        scenario,
+        objects: ikObjects,
+        operatorId: operator?.id ?? 'anonymous',
+        mode,
+        runId: run.id,
+        callbacks: {
+          onStep: (step, detail) => {
+            setCinematicStep(detail ? `${step}: ${detail}` : step)
+            const stepEntry = logAction({
+              operator: operator?.name ?? 'OPERATOR',
+              action: 'scenario_start',
+              details: `Cinematic flow — ${step}${detail ? `: ${detail}` : ''}`,
+              affectedObject: scenario.triggerObjectId,
+              mode,
+            })
+            addAuditEntry(stepEntry)
+          },
+          updateObjectStatus,
+          setCascadeResult,
+          addAlerts,
+          addRecommendation,
+          addIncident,
+          openIncidentCommand,
+          pulseEventHeartbeat,
+        },
+      })
+
+      const completedRunData: ScenarioRun = {
+        ...result.run,
+        generatedAlertIds: result.alerts.map((a: Alert) => a.id),
+      }
+      setActiveScenarioRun(completedRunData)
+      setCompletedRun(completedRunData)
+    } finally {
+      setCinematicStep(null)
+      setRunning(false)
     }
-
-    // Compute cascade (simulated delay for UX)
-    await new Promise(r => setTimeout(r, 800))
-
-    const result = buildScenarioLaunchResult({
-      scenario,
-      objects: ikObjects,
-      operatorId: operator?.id ?? 'anonymous',
-      mode,
-      runId: run.id,
-    })
-
-    setCascadeResult(result.cascadeResult)
-    addAlerts(result.alerts)
-    addRecommendation(result.recommendation)
-    addIncident(result.incident)
-
-    const completedRunData: ScenarioRun = {
-      ...result.run,
-      generatedAlertIds: result.alerts.map(a => a.id),
-    }
-    setActiveScenarioRun(completedRunData)
-    setCompletedRun(completedRunData)
-    pulseEventHeartbeat()
-    openIncidentCommand(result.incident.id)
-    setRunning(false)
   }
 
   function abortScenario() {
@@ -254,7 +263,7 @@ export function ScenarioEngine() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 border-2 border-[#FF8A1F] border-t-transparent rounded-full animate-spin" />
                   <div className="text-[12px] font-mono text-[#FF8A1F]">
-                    Obliczanie kaskady BFS/DFS... Proszę czekać.
+                    {cinematicStep ?? 'Uruchamianie cinematic flow incydentu...'}
                   </div>
                 </div>
               </Card>

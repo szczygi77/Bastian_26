@@ -1,13 +1,31 @@
-import type { SystemHealth, SyncStatus } from '@/types'
+import type { SystemHealth } from '@/types'
 import { getLocalDbStatus, getSyncQueueLength, isRemoteDatabaseAvailable } from '@/services/databaseService'
+import { getRCBLinkStatus } from '@/adapters/rcbMockAdapter'
+import { getTetraLinkStatus } from '@/adapters/tetraMockAdapter'
+import { getWeatherSyncStatus } from '@/adapters/weatherAdapter'
+import { getFIRMSSyncStatus } from '@/adapters/firmsAdapter'
+import { getOpenSkySyncStatus } from '@/adapters/openskyAdapter'
+import { getOsmSyncStatus, getCachedIkCoordinateCount } from '@/adapters/osmAdapter'
+import { getSentinelSyncStatus } from '@/adapters/sentinelAdapter'
+import { IK_GEOCODE_SPECS } from '@/data/ikGeocoding'
 
 let startTime = Date.now()
 
-const mockSyncStatus = (ageMinutes: number, err = false): SyncStatus => ({
-  status: err ? 'error' : ageMinutes < 10 ? 'synced' : ageMinutes < 60 ? 'synced' : 'offline',
-  lastSync: err ? null : new Date(Date.now() - ageMinutes * 60 * 1000),
-  dataAge: ageMinutes,
-})
+function buildPublicDataSyncStatus(online: boolean): SystemHealth['publicDataSyncStatus'] {
+  const weather = getWeatherSyncStatus()
+  const firms = getFIRMSSyncStatus()
+  const opensky = getOpenSkySyncStatus()
+  const osm = getOsmSyncStatus(getCachedIkCoordinateCount(), IK_GEOCODE_SPECS.length)
+  const sentinel = getSentinelSyncStatus()
+
+  return {
+    weather: online ? weather : { ...weather, status: 'offline' },
+    firms: online ? firms : { ...firms, status: 'offline' },
+    opensky: online ? opensky : { ...opensky, status: 'offline' },
+    osm: online ? osm : { ...osm, status: 'offline' },
+    sentinel: online ? sentinel : { ...sentinel, status: 'offline' },
+  }
+}
 
 export async function buildSystemHealth(online: boolean, mode: import('@/types').SystemMode): Promise<SystemHealth> {
   const [localDbStatus, syncQueueLength] = await Promise.all([
@@ -15,6 +33,8 @@ export async function buildSystemHealth(online: boolean, mode: import('@/types')
     getSyncQueueLength(),
   ])
   const remoteDb = isRemoteDatabaseAvailable()
+  const rcb = getRCBLinkStatus()
+  const tetra = getTetraLinkStatus(online)
 
   return {
     mode,
@@ -29,21 +49,18 @@ export async function buildSystemHealth(online: boolean, mode: import('@/types')
     watchdogActive: true,
     hotStandbyActive: true,
     upsActive: true,
-    rcbLinkStatus: online ? 'connected' : 'offline',
-    tetraLinkStatus: 'connected',
+    rcbLinkStatus: online ? rcb.status : 'offline',
+    tetraLinkStatus: tetra.status,
     gsmFallbackStatus: 'ready',
     syncQueueLength: online ? syncQueueLength : Math.max(syncQueueLength, 1),
-    publicDataSyncStatus: {
-      weather: mockSyncStatus(online ? 5 : 45),
-      firms: mockSyncStatus(online ? 12 : 90, !online),
-      opensky: mockSyncStatus(online ? 1 : 60),
-      osm: mockSyncStatus(online ? 120 : 1440),
-      sentinel: mockSyncStatus(online ? 18 : 120, !online),
-    },
+    publicDataSyncStatus: buildPublicDataSyncStatus(online),
   }
 }
 
 export function getSystemHealth(online: boolean, mode: import('@/types').SystemMode): SystemHealth {
+  const rcb = getRCBLinkStatus()
+  const tetra = getTetraLinkStatus(online)
+
   return {
     mode,
     online,
@@ -57,17 +74,11 @@ export function getSystemHealth(online: boolean, mode: import('@/types').SystemM
     watchdogActive: true,
     hotStandbyActive: true,
     upsActive: true,
-    rcbLinkStatus: online ? 'connected' : 'offline',
-    tetraLinkStatus: 'connected',
+    rcbLinkStatus: online ? rcb.status : 'offline',
+    tetraLinkStatus: tetra.status,
     gsmFallbackStatus: 'ready',
     syncQueueLength: online ? 0 : 1,
-    publicDataSyncStatus: {
-      weather: mockSyncStatus(online ? 5 : 45),
-      firms: mockSyncStatus(online ? 12 : 90, !online),
-      opensky: mockSyncStatus(online ? 1 : 60),
-      osm: mockSyncStatus(online ? 120 : 1440),
-      sentinel: mockSyncStatus(online ? 18 : 120, !online),
-    },
+    publicDataSyncStatus: buildPublicDataSyncStatus(online),
   }
 }
 

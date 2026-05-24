@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Bell, Check, ArrowUpRight, X, Download, Filter, AlertTriangle, Layers, List, ExternalLink } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
+import { enqueueAction } from '@/services/offlineDataManager'
+import { broadcastTetraAlert } from '@/adapters/tetraMockAdapter'
 import { groupAlertsByIncident, alertKindLabel, type AlertGroup } from '@/services/alertGrouping'
 import { formatTimestamp, formatTimeAgo } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -108,6 +110,12 @@ export function AlertCenter() {
     updateAlert(alert.id, { status: 'escalated', escalatedAt: new Date() })
     const entry = logAction({ operator: operator?.name ?? 'OPERATOR', action: 'alert_escalate', details: `Eskalowano alert: ${alert.title}`, alertId: alert.id, mode })
     addAuditEntry(entry)
+    void enqueueAction({
+      entity: 'audit_entries',
+      entityId: alert.id,
+      payload: { type: 'alert_escalate', alertId: alert.id, title: alert.title, incidentId: alert.incidentId },
+    })
+    void broadcastTetraAlert(`ESKALACJA: ${alert.title}`, 1)
     toast({ title: 'Alert eskalowany', description: alert.title, variant: 'warning' })
     setEscalateModal(false)
     if (selected?.id === alert.id) setSelected({ ...alert, status: 'escalated' })

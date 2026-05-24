@@ -142,6 +142,14 @@ export function generateRecommendation(ctx: RuleContext): Recommendation {
     actions,
     confidence: 90,
     reasoning,
+    whyThisAction: `Kaskada dotknęła ${cascade.affectedCount} obiektów (impact ${cascade.totalImpactScore.toFixed(1)}/100). Pierwsze działanie minimalizuje propagację od ${triggerObj?.shortName ?? cascade.incidentObjectId}.`,
+    ifIgnored: cascade.nodes.length > 0
+      ? `Brak reakcji w ciągu ${Math.min(...cascade.nodes.map(n => n.affectedAt))} min grozi eskalacją do ${cascade.criticalCount} obiektów krytycznych i naruszeniem ciągłości usług.`
+      : `Brak reakcji w ciągu ${cascade.timelineMinutes} min grozi eskalacją kaskady i naruszeniem ciągłości usług.`,
+    affectedNodes: [
+      cascade.incidentObjectId,
+      ...cascade.nodes.map(n => n.objectId),
+    ],
     requiresApproval: riskLevel === 'critical' || riskLevel === 'high',
     generatedAt: new Date(),
   }
