@@ -9,6 +9,7 @@ import type {
   AuditEntry,
   PublicDataSourceStatus,
   Recommendation,
+  ComplianceRequirement,
 } from '@/types'
 import { generateId, formatTimestamp } from '@/utils/format'
 
@@ -31,6 +32,47 @@ function buildPublicDataEvidenceReport(
       cacheTtlMinutes: s.cacheTtlMinutes,
     })),
     integrityNote: 'Status LIVE oznacza realny fetch w tej sesji. CACHED/STALE/ERROR/MISSING_KEY nie są prezentowane jako live.',
+  }
+}
+
+function buildComplianceReport(
+  requirements: ComplianceRequirement[],
+  operator: string,
+): Record<string, unknown> {
+  const gaps = requirements.filter(
+    r => r.actionNeeded || r.status === 'partial' || r.status === 'non_compliant' || r.status === 'pending_review',
+  )
+
+  return {
+    reportType: 'COMPLIANCE_REPORT',
+    generatedBy: operator,
+    generatedAt: new Date().toISOString(),
+    summary: {
+      total: requirements.length,
+      compliant: requirements.filter(r => r.status === 'compliant').length,
+      partial: requirements.filter(r => r.status === 'partial').length,
+      pendingReview: requirements.filter(r => r.status === 'pending_review').length,
+      nonCompliant: requirements.filter(r => r.status === 'non_compliant').length,
+      productionBlockers: gaps.length,
+    },
+    productionReadinessGaps: gaps.map(r => ({
+      id: r.id,
+      regulation: r.regulation,
+      article: r.article,
+      status: r.status,
+      risk: r.risk,
+      actionNeeded: r.actionNeeded ?? 'Wymaga przeglądu przed produkcją',
+    })),
+    requirements: requirements.map(r => ({
+      id: r.id,
+      regulation: r.regulation,
+      article: r.article,
+      requirement: r.requirement,
+      bastionImplementation: r.bastionImplementation,
+      status: r.status,
+      risk: r.risk,
+      actionNeeded: r.actionNeeded,
+    })),
   }
 }
 
@@ -196,6 +238,7 @@ export function generateReport(params: {
   recommendations?: Recommendation[]
   auditEntries?: AuditEntry[]
   publicDataSources?: PublicDataSourceStatus[]
+  complianceRequirements?: ComplianceRequirement[]
 }): ReportDefinition {
   const {
     type,
@@ -208,6 +251,7 @@ export function generateReport(params: {
     recommendations,
     auditEntries,
     publicDataSources,
+    complianceRequirements,
   } = params
 
   let content: Record<string, unknown> = {}
@@ -245,7 +289,7 @@ export function generateReport(params: {
       break
     case 'compliance':
       title = 'Raport Zgodności'
-      content = { note: 'Patrz moduł Compliance Center' }
+      content = buildComplianceReport(complianceRequirements ?? [], operator)
       break
     case 'escalation':
       title = 'Raport Eskalacji'

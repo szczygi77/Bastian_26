@@ -28,13 +28,26 @@ function ConnectionRow({ label, status, detail }: { label: string; status: strin
 }
 
 export function SystemStatus() {
-  const { systemHealth, refreshSystemHealth, online, mode } = useAppStore()
+  const { systemHealth, refreshSystemHealth, refreshPublicDataSources, publicDataSources, online, mode } = useAppStore()
 
   useEffect(() => {
     refreshSystemHealth()
-    const interval = setInterval(refreshSystemHealth, 15000)
+    refreshPublicDataSources()
+    const interval = setInterval(() => {
+      refreshSystemHealth()
+      refreshPublicDataSources()
+    }, 15000)
     return () => clearInterval(interval)
-  }, [refreshSystemHealth])
+  }, [refreshSystemHealth, refreshPublicDataSources])
+
+  const sourceStatusColor = (status: string): 'green' | 'warning' | 'danger' | 'muted' | 'cyan' | 'orange' => {
+    if (status === 'live') return 'green'
+    if (status === 'cached') return 'cyan'
+    if (status === 'stale') return 'orange'
+    if (status === 'missing_key') return 'warning'
+    if (status === 'offline') return 'muted'
+    return 'danger'
+  }
 
   const uptimeDays = Math.floor(systemHealth.uptime / 86400)
   const uptimeHours = Math.floor((systemHealth.uptime % 86400) / 3600)
@@ -225,6 +238,54 @@ export function SystemStatus() {
               <div>Air-gap capable: ready</div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card label="PUBLIC DATA SOURCES">
+        <div className="ui-stack" style={{ gap: 12 }}>
+          {publicDataSources.map(source => (
+            <div key={source.sourceId} className="ui-row-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-[11px] font-mono text-[#E6EDF3]">{source.sourceName}</div>
+                  <div className="text-[10px] font-mono text-[#66778B]">{source.sourceId.toUpperCase()}</div>
+                </div>
+                <Badge variant={sourceStatusColor(source.status)}>{source.status.toUpperCase()}</Badge>
+              </div>
+              <div className="ui-grid ui-grid-4" style={{ gap: 8 }}>
+                <div>
+                  <div className="text-[9px] font-mono text-[#66778B] uppercase">Last sync</div>
+                  <div className="text-[10px] font-mono text-[#94A3B8]">
+                    {source.lastSync ? formatTimeAgo(source.lastSync) : 'Nigdy'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-[#66778B] uppercase">Latency</div>
+                  <div className="text-[10px] font-mono text-[#94A3B8]">
+                    {source.latencyMs != null ? `${source.latencyMs} ms` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-[#66778B] uppercase">Cache TTL</div>
+                  <div className="text-[10px] font-mono text-[#94A3B8]">
+                    {source.cacheTtlMinutes != null ? `${source.cacheTtlMinutes} min` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-[#66778B] uppercase">Auth</div>
+                  <div className="text-[10px] font-mono text-[#94A3B8]">{source.authMethod ?? 'public'}</div>
+                </div>
+              </div>
+              {source.recordsFetched != null && (
+                <div className="text-[10px] font-mono text-[#66778B] mt-2">
+                  Rekordy: {source.recordsFetched}
+                </div>
+              )}
+              {source.errorMessage && (
+                <div className="text-[10px] font-mono text-[#EF4444] mt-2">{source.errorMessage}</div>
+              )}
+            </div>
+          ))}
         </div>
       </Card>
 

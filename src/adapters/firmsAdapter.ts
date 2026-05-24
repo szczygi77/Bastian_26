@@ -1,9 +1,11 @@
 import type { FIRMSAlert, SyncStatus } from '@/types'
 import type { AdapterFetchMode } from '@/adapters/adapterState'
+import { migrateLegacyCache, readApiCache, writeApiCache } from '@/services/publicApiCache'
 
 /** Stalowa Wola — west,south,east,north */
 const AREA_BBOX = '21.70,50.30,22.50,50.90'
 const CACHE_KEY = 'bastion_firms_cache'
+const CACHE_SOURCE = 'firms'
 const TIMEOUT_MS = 15000
 
 let lastSync: Date | null = null
@@ -11,27 +13,28 @@ let cachedAlerts: FIRMSAlert[] = []
 let lastFetchMode: AdapterFetchMode = 'empty'
 let lastError: string | undefined
 
-function readCache(): FIRMSAlert[] | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const { alerts } = JSON.parse(raw) as { alerts: FIRMSAlert[] }
-    return alerts.map(a => ({ ...a, detectedAt: new Date(a.detectedAt) }))
-  } catch {
-    return null
+async function readCacheAsync(): Promise<FIRMSAlert[] | null> {
+  if (cachedAlerts.length > 0) return cachedAlerts
+  const migrated = await migrateLegacyCache<FIRMSAlert[]>(CACHE_SOURCE, CACHE_KEY, 240)
+  if (migrated) {
+    cachedAlerts = migrated
+    lastFetchMode = 'cached'
+    return migrated
   }
+  const cached = await readApiCache<FIRMSAlert[]>(CACHE_SOURCE)
+  if (!cached) return null
+  cachedAlerts = cached.data
+  lastFetchMode = 'cached'
+  lastSync = new Date(cached.cachedAt)
+  return cached.data
 }
 
 export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
   if (!apiKey) {
     lastFetchMode = 'missing_key'
     lastError = 'VITE_FIRMS_API_KEY not configured'
-    const cached = readCache()
-    if (cached) {
-      cachedAlerts = cached
-      return cached
-    }
-    return []
+    const cached = await readCacheAsync()
+    return cached ?? []
   }
 
   const controller = new AbortController()
@@ -83,12 +86,12 @@ export async function fetchFIRMSAlerts(apiKey?: string): Promise<FIRMSAlert[]> {
     lastSync = new Date()
     lastFetchMode = 'live'
     lastError = undefined
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ alerts, timestamp: Date.now() }))
+    await writeApiCache(CACHE_SOURCE, alerts, 240)
     return alerts
   } catch (error) {
     clearTimeout(timeoutId)
     lastError = error instanceof Error ? error.message : 'fetch failed'
-    const cached = readCache()
+    const cached = await readCacheAsync()
     if (cached) {
       lastFetchMode = 'cached'
       cachedAlerts = cached

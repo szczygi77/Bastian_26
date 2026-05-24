@@ -1,9 +1,11 @@
 import type { WeatherData, SyncStatus } from '@/types'
 import type { AdapterFetchMode } from '@/adapters/adapterState'
+import { migrateLegacyCache, readApiCache, writeApiCache } from '@/services/publicApiCache'
 
 const STALOWA_WOLA_LAT = 50.579
 const STALOWA_WOLA_LON = 22.040
 const CACHE_KEY = 'bastion_weather_cache'
+const CACHE_SOURCE = 'weather'
 const TIMEOUT_MS = 10000
 
 let lastSync: Date | null = null
@@ -39,15 +41,24 @@ function buildForecastUrl(): string {
   return `https://api.open-meteo.com/v1/forecast?${params}`
 }
 
-function readCache(): WeatherData | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const { data } = JSON.parse(raw) as { data: WeatherData }
-    return { ...data, lastUpdate: new Date(data.lastUpdate) }
-  } catch {
-    return null
+function readCacheSync(): WeatherData | null {
+  return cachedData
+}
+
+async function readCacheAsync(): Promise<WeatherData | null> {
+  if (cachedData) return cachedData
+  const migrated = await migrateLegacyCache<WeatherData>(CACHE_SOURCE, CACHE_KEY, 120)
+  if (migrated) {
+    cachedData = migrated
+    lastFetchMode = 'cached'
+    return migrated
   }
+  const cached = await readApiCache<WeatherData>(CACHE_SOURCE)
+  if (!cached) return null
+  cachedData = cached.data
+  lastFetchMode = 'cached'
+  lastSync = new Date(cached.cachedAt)
+  return cached.data
 }
 
 function unavailableWeather(reason: string): WeatherData {
@@ -97,12 +108,12 @@ export async function fetchWeather(): Promise<WeatherData> {
     lastSync = new Date()
     lastFetchMode = 'live'
     lastError = undefined
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }))
+    await writeApiCache(CACHE_SOURCE, data, 120)
     return data
   } catch (error) {
     clearTimeout(timeoutId)
     lastError = error instanceof Error ? error.message : 'fetch failed'
-    const cached = readCache() ?? cachedData
+    const cached = readCacheSync() ?? (await readCacheAsync())
     if (cached) {
       lastFetchMode = 'cached'
       cachedData = cached

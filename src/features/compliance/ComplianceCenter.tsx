@@ -1,9 +1,14 @@
 import { useState } from 'react'
-import { Shield, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react'
+import { Shield, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Download, Rocket } from 'lucide-react'
 import { COMPLIANCE_REQUIREMENTS } from '@/data/compliance'
+import { useAppStore } from '@/store/useAppStore'
+import { logAction } from '@/services/auditLogService'
+import { generateReport, downloadReportFile } from '@/services/reportGenerator'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageShell } from '@/components/layout/PageShell'
+import { useToast } from '@/components/ui/Toast'
 import type { LucideIcon } from 'lucide-react'
 
 const STATUS_CONFIG: Record<string, { label: string; badge: 'green' | 'warning' | 'danger' | 'muted'; icon: LucideIcon }> = {
@@ -18,14 +23,38 @@ const REGULATION_GROUPS = ['KSC', 'NIS2', 'CER', 'RODO', 'EU AI Act', 'KRI', 'ST
 export function ComplianceCenter() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filterReg, setFilterReg] = useState<string>('all')
+  const { operator, mode, addAuditEntry } = useAppStore()
+  const { toast } = useToast()
 
   const filtered = COMPLIANCE_REQUIREMENTS.filter(r => filterReg === 'all' || r.regulation === filterReg)
+
+  const productionGaps = COMPLIANCE_REQUIREMENTS.filter(
+    r => r.actionNeeded || r.status === 'partial' || r.status === 'non_compliant' || r.status === 'pending_review',
+  )
 
   const stats = {
     compliant: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'compliant').length,
     partial: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'partial').length,
     pending: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'pending_review').length,
     nonCompliant: COMPLIANCE_REQUIREMENTS.filter(r => r.status === 'non_compliant').length,
+  }
+
+  function exportComplianceReport(format: 'json' | 'html') {
+    const report = generateReport({
+      type: 'compliance',
+      objects: [],
+      operator: operator?.name ?? 'OPERATOR',
+      complianceRequirements: COMPLIANCE_REQUIREMENTS,
+    })
+    downloadReportFile(report, format)
+    const entry = logAction({
+      operator: operator?.name ?? 'OPERATOR',
+      action: 'report_export',
+      details: `Wyeksportowano raport zgodności (${format})`,
+      mode,
+    })
+    addAuditEntry(entry)
+    toast({ title: 'Raport zgodności wyeksportowany', variant: 'success' })
   }
 
   return (
@@ -43,7 +72,53 @@ export function ComplianceCenter() {
             </p>
           </div>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportComplianceReport('json')}>
+            <Download size={12} /> Export JSON
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => exportComplianceReport('html')}>
+            <Download size={12} /> Export HTML
+          </Button>
+        </div>
       </div>
+
+      <Card label="PRODUCTION READINESS · CO BRAKUJE PRZED PRODUKCJĄ" accent="orange">
+        <div className="flex items-start gap-3 mb-4">
+          <Rocket size={16} className="text-[#FF8A1F] flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="text-[11px] font-mono text-[#E6EDF3]">
+              {productionGaps.length === 0
+                ? 'Brak zidentyfikowanych blokad produkcyjnych'
+                : `${productionGaps.length} wymagań wymaga działania przed wdrożeniem produkcyjnym`}
+            </div>
+            <div className="text-[10px] font-mono text-[#66778B] mt-1">
+              Lista obejmuje statusy partial, pending_review, non_compliant oraz wpisy z actionNeeded.
+            </div>
+          </div>
+        </div>
+        <div className="ui-stack" style={{ gap: 10 }}>
+          {productionGaps.map(gap => {
+            const config = STATUS_CONFIG[gap.status]
+            return (
+              <div
+                key={gap.id}
+                className="ui-panel"
+                style={{ padding: '12px 14px', background: 'rgba(255,138,31,0.06)', border: '1px solid rgba(255,138,31,0.18)' }}
+              >
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge variant={config.badge}>{gap.regulation}</Badge>
+                  <Badge variant="muted">{gap.article}</Badge>
+                  <Badge variant={config.badge}>{config.label}</Badge>
+                </div>
+                <div className="text-[11px] font-mono text-[#94A3B8] mb-2">{gap.requirement}</div>
+                <div className="text-[10px] font-mono text-[#F59E0B]">
+                  {gap.actionNeeded ?? 'Wymaga formalnego przeglądu przed produkcją'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
 
       {/* Stats */}
       <div className="ui-grid ui-grid-4">

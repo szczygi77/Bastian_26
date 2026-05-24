@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
-import { Bell, Check, ArrowUpRight, X, Download, Filter, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Bell, Check, ArrowUpRight, X, Download, Filter, AlertTriangle, Layers, List, ExternalLink } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { logAction } from '@/services/auditLogService'
+import { groupAlertsByIncident, alertKindLabel, type AlertGroup } from '@/services/alertGrouping'
 import { formatTimestamp, formatTimeAgo } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge, StatusBadge } from '@/components/ui/Badge'
@@ -15,10 +16,25 @@ import type { Alert as AlertType } from '@/types'
 
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
 
+const SOURCE_STATUS_VARIANT: Record<string, 'green' | 'warning' | 'danger' | 'muted' | 'orange' | 'cyan'> = {
+  live: 'green',
+  cached: 'cyan',
+  stale: 'orange',
+  offline: 'muted',
+  error: 'danger',
+  missing_key: 'warning',
+  mock: 'muted',
+}
+
 export function AlertCenter() {
-  const { alerts, updateAlert, operator, mode, addAuditEntry, focusedIkObjectId, setFocusedIkObjectId, openIncidentCommand } = useAppStore()
+  const {
+    alerts, updateAlert, operator, mode, addAuditEntry, focusedIkObjectId, setFocusedIkObjectId,
+    openIncidentCommand, incidents, publicDataSources,
+  } = useAppStore()
   const { toast } = useToast()
   const [selected, setSelected] = useState<AlertType | null>(null)
+  const [selectedGroup, setSelectedGroup] = useState<AlertGroup | null>(null)
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped')
   const [filterSeverity, setFilterSeverity] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [objectFilter, setObjectFilter] = useState<string | null>(null)
@@ -35,6 +51,50 @@ export function AlertCenter() {
     .filter(a => filterStatus === 'all' || a.status === filterStatus)
     .filter(a => !objectFilter || a.affectedNodes.includes(objectFilter))
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
+
+  const groups = useMemo(
+    () => groupAlertsByIncident(filtered, incidents),
+    [filtered, incidents],
+  )
+
+  function selectAlert(alert: AlertType, group?: AlertGroup | null) {
+    setSelected(alert)
+    setSelectedGroup(group ?? groups.find(g => g.alerts.some(a => a.id === alert.id)) ?? null)
+  }
+
+  function selectGroup(group: AlertGroup) {
+    setSelectedGroup(group)
+    setSelected(group.rootAlert)
+  }
+
+  const activeGroup = selectedGroup ?? (selected ? groups.find(g => g.alerts.some(a => a.id === selected.id)) ?? null : null)
+  const affectedPath = activeGroup
+    ? [...new Set(activeGroup.alerts.flatMap(a => a.affectedNodes))]
+    : selected?.affectedNodes ?? []
+
+  const escalationTrail = activeGroup
+    ? [...activeGroup.alerts]
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          status: a.status,
+          severity: a.severity,
+          timestamp: a.timestamp,
+          escalatedAt: a.escalatedAt,
+          acknowledgedAt: a.acknowledgedAt,
+        }))
+    : selected
+      ? [{
+          id: selected.id,
+          title: selected.title,
+          status: selected.status,
+          severity: selected.severity,
+          timestamp: selected.timestamp,
+          escalatedAt: selected.escalatedAt,
+          acknowledgedAt: selected.acknowledgedAt,
+        }]
+      : []
 
   function acknowledge(alert: AlertType) {
     updateAlert(alert.id, { status: 'acknowledged', acknowledgedAt: new Date() })
@@ -93,6 +153,34 @@ export function AlertCenter() {
             </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#66778B' }}>{alerts.length} total</span>
           </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={() => setViewMode('grouped')}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '6px 10px', borderRadius: 10, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10,
+                border: viewMode === 'grouped' ? '1px solid rgba(0,229,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                background: viewMode === 'grouped' ? 'rgba(0,229,255,0.08)' : 'transparent',
+                color: viewMode === 'grouped' ? '#00E5FF' : '#66778B',
+              }}
+            >
+              <Layers size={11} /> GRUPOWANE
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('flat')}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '6px 10px', borderRadius: 10, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10,
+                border: viewMode === 'flat' ? '1px solid rgba(0,229,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                background: viewMode === 'flat' ? 'rgba(0,229,255,0.08)' : 'transparent',
+                color: viewMode === 'flat' ? '#00E5FF' : '#66778B',
+              }}
+            >
+              <List size={11} /> LISTA
+            </button>
+          </div>
           <FilterPills
             options={['all', 'critical', 'high', 'medium', 'low'].map(s => ({ value: s, label: s }))}
             value={filterSeverity}
@@ -132,6 +220,19 @@ export function AlertCenter() {
               <Check size={20} style={{ marginBottom: 8, opacity: 0.4 }} />
               Brak alertów
             </div>
+          ) : viewMode === 'grouped' ? (
+            groups.map(group => (
+              <div key={group.key}>
+                <IncidentRow
+                  id={group.incidentId?.slice(-8).toUpperCase() ?? group.key.slice(-8).toUpperCase()}
+                  title={group.title}
+                  severity={group.severity === 'info' ? 'info' : group.severity as 'critical' | 'high' | 'medium'}
+                  time={`${group.alerts.length} alertów · ${formatTimeAgo(group.rootAlert.timestamp)}`}
+                  selected={selectedGroup?.key === group.key}
+                  onClick={() => selectGroup(group)}
+                />
+              </div>
+            ))
           ) : (
             filtered.map(alert => (
               <IncidentRow
@@ -141,7 +242,7 @@ export function AlertCenter() {
                 severity={alert.severity === 'info' ? 'info' : alert.severity as 'critical' | 'high' | 'medium'}
                 time={formatTimeAgo(alert.timestamp)}
                 selected={selected?.id === alert.id}
-                onClick={() => setSelected(alert)}
+                onClick={() => selectAlert(alert)}
               />
             ))
           )}
@@ -170,14 +271,51 @@ export function AlertCenter() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-[14px] font-mono font-bold text-[#E6EDF3] mb-2">{selected.title}</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <SeverityBadge severity={selected.severity} />
                   <StatusBadge status={selected.status} />
+                  <Badge variant="muted">{alertKindLabel(selected, selected.id === activeGroup?.rootAlert.id)}</Badge>
                   <Badge variant="muted">{selected.source.replace(/_/g, ' ')}</Badge>
                   <Badge variant="muted">CONFIDENCE: {selected.confidence}%</Badge>
                 </div>
               </div>
             </div>
+
+            {activeGroup && activeGroup.incidentId && (
+              <Card label="ROOT CAUSE · INCIDENT">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-mono text-[#E6EDF3]">{activeGroup.title}</div>
+                    <div className="text-[10px] font-mono text-[#66778B] mt-1">ID: {activeGroup.incidentId}</div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => openIncidentCommand(activeGroup.incidentId)}>
+                    <ExternalLink size={12} /> Incident Command
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {activeGroup && activeGroup.alerts.length > 1 && (
+              <Card label="ALERTY W GRUPIE">
+                <div className="space-y-1">
+                  {activeGroup.alerts.map(alert => (
+                    <button
+                      key={alert.id}
+                      type="button"
+                      onClick={() => selectAlert(alert, activeGroup)}
+                      className={`w-full text-left flex items-center justify-between py-2 px-2 rounded-[10px] border transition-colors ${
+                        selected.id === alert.id
+                          ? 'border-[#00E5FF]/30 bg-[#00E5FF]/5'
+                          : 'border-transparent hover:border-white/[0.06]'
+                      }`}
+                    >
+                      <span className="text-[10px] font-mono text-[#94A3B8]">{alert.title}</span>
+                      <SeverityBadge severity={alert.severity} />
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             <Card>
               <p className="text-[12px] font-mono text-[#94A3B8] leading-relaxed">{selected.description}</p>
@@ -186,15 +324,45 @@ export function AlertCenter() {
               </div>
             </Card>
 
-            {selected.affectedNodes.length > 0 && (
-              <Card label="AFFECTED OBJECTS">
+            {affectedPath.length > 0 && (
+              <Card label="AFFECTED PATH">
                 <div className="flex flex-wrap gap-2">
-                  {selected.affectedNodes.map(id => (
+                  {affectedPath.map(id => (
                     <Badge key={id} variant="orange">{id.toUpperCase()}</Badge>
                   ))}
                 </div>
               </Card>
             )}
+
+            <Card label="ESCALATION TRAIL">
+              <div className="space-y-2">
+                {escalationTrail.map((step, i) => (
+                  <div key={step.id} className="flex items-start gap-3 py-1.5 border-b border-white/[0.04] last:border-0">
+                    <span className="text-[10px] font-mono text-[#66778B] w-4 flex-shrink-0">{i + 1}.</span>
+                    <div className="flex-1">
+                      <div className="text-[11px] font-mono text-[#94A3B8]">{step.title}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <StatusBadge status={step.status} />
+                        <span className="text-[10px] font-mono text-[#66778B]">{formatTimestamp(step.timestamp)}</span>
+                        {step.escalatedAt && (
+                          <Badge variant="danger">ESKALOWANO {formatTimeAgo(step.escalatedAt)}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card label="SOURCE DATA STATUS">
+              <div className="flex flex-wrap gap-2">
+                {publicDataSources.map(source => (
+                  <Badge key={source.sourceId} variant={SOURCE_STATUS_VARIANT[source.status] ?? 'muted'}>
+                    {source.sourceName}: {source.status.toUpperCase()}
+                  </Badge>
+                ))}
+              </div>
+            </Card>
 
             <Card label="RECOMMENDED ACTIONS">
               <div className="space-y-2">
