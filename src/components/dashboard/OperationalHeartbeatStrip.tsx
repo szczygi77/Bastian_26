@@ -1,13 +1,16 @@
+import { memo } from 'react'
 import { Activity, Radio, Shield, Zap } from 'lucide-react'
 import { formatTimeAgo } from '@/utils/format'
 import type { OperationalEvent, OperationalPulse } from '@/types'
 
-export function OperationalHeartbeatStrip({
+export const OperationalHeartbeatStrip = memo(function OperationalHeartbeatStrip({
   pulse,
   events,
+  compact = false,
 }: {
   pulse: OperationalPulse | null
   events: OperationalEvent[]
+  compact?: boolean
 }) {
   if (!pulse) return null
 
@@ -16,7 +19,7 @@ export function OperationalHeartbeatStrip({
     pulse.propagationPressure >= 40 ? '#FF8A1F' : '#22C55E'
 
   return (
-    <div className="ops-heartbeat">
+    <div className={`ops-heartbeat ${compact ? 'ops-heartbeat--compact' : ''}`}>
       <div className="ops-heartbeat__metrics">
         <div className="ops-heartbeat__metric">
           <Activity size={12} />
@@ -44,18 +47,20 @@ export function OperationalHeartbeatStrip({
           probe {formatTimeAgo(pulse.lastProbeAt)}
         </span>
       </div>
-      <div className="ops-heartbeat__rail">
-        {events.slice(0, 6).map(ev => (
-          <div
-            key={ev.id}
-            className={`ops-heartbeat__event ops-heartbeat__event--${ev.severity}`}
-            title={ev.message}
-          >
-            <span className="ops-heartbeat__event-type">{ev.type.replace(/_/g, ' ')}</span>
-            <span className="ops-heartbeat__event-msg">{ev.message}</span>
-          </div>
-        ))}
-      </div>
+      {!compact && (
+        <div className="ops-heartbeat__rail">
+          {events.slice(0, 6).map(ev => (
+            <div
+              key={ev.id}
+              className={`ops-heartbeat__event ops-heartbeat__event--${ev.severity}`}
+              title={ev.message}
+            >
+              <span className="ops-heartbeat__event-type">{ev.type.replace(/_/g, ' ')}</span>
+              <span className="ops-heartbeat__event-msg">{ev.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
-}
+})

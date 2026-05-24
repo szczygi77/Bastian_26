@@ -152,9 +152,18 @@ export function DecisionSupport() {
                         <span className="text-[10px] font-mono text-[#66778B] w-4 flex-shrink-0">{action.priority}.</span>
                         <div className="flex-1 min-w-0">
                           <div className="text-[11px] font-mono text-[#E6EDF3] mb-1">{action.description}</div>
-                          <div className="flex gap-3 text-[10px] font-mono text-[#66778B]">
+                          <div className="flex gap-3 text-[10px] font-mono text-[#66778B] flex-wrap">
                             <span>👤 {action.responsible}</span>
                             <span>⏱ {action.timeframe}</span>
+                            {action.executionState && (
+                              <Badge variant={
+                                action.executionState === 'executed' ? 'green' :
+                                action.executionState === 'failed' ? 'danger' :
+                                action.executionState === 'queued' ? 'cyan' : 'muted'
+                              }>
+                                {action.executionState.toUpperCase()}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <button

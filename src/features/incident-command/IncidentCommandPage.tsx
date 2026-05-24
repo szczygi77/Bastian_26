@@ -12,6 +12,8 @@ import { IncidentTimeline } from '@/features/incident-command/IncidentTimeline'
 import { IncidentDecisionPanel } from '@/features/incident-command/IncidentDecisionPanel'
 import { IncidentDataSourcesStrip } from '@/features/incident-command/IncidentDataSourcesStrip'
 import { IncidentReportActions, logReportExport } from '@/features/incident-command/IncidentReportActions'
+import { IncidentContainmentSummary } from '@/features/incident-command/IncidentContainmentSummary'
+import { OperationalHeartbeatStrip } from '@/components/dashboard/OperationalHeartbeatStrip'
 
 export function IncidentCommandPage() {
   const {
@@ -26,6 +28,9 @@ export function IncidentCommandPage() {
     publicDataSources,
     operator,
     mode,
+    containmentResult,
+    operationalPulse,
+    operationalEvents,
     addMission,
     updateDrone,
     approveAction,
@@ -181,6 +186,7 @@ export function IncidentCommandPage() {
         </main>
 
         <aside className="icm-page__right">
+          {containmentResult && <IncidentContainmentSummary result={containmentResult} />}
           <IncidentDecisionPanel
             recommendations={incidentRecs}
             asset={assetRecommendation}
@@ -194,7 +200,10 @@ export function IncidentCommandPage() {
 
       <footer className="icm-page__bottom">
         <IncidentTimeline cascadeResult={cascadeResult} objects={ikObjects} />
-        <IncidentDataSourcesStrip sources={publicDataSources} auditEntries={auditEntries} />
+        <div className="icm-page__bottom-right">
+          <OperationalHeartbeatStrip pulse={operationalPulse} events={operationalEvents} compact />
+          <IncidentDataSourcesStrip sources={publicDataSources} auditEntries={auditEntries} />
+        </div>
       </footer>
     </div>
   )

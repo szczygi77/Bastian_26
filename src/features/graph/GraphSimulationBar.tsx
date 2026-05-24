@@ -1,4 +1,5 @@
-import { Play, RotateCcw, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Play, Pause, RotateCcw, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -18,6 +19,25 @@ export function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
     ikObjects,
   } = useAppStore()
 
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    if (!playing || cascadeReplayFrames.length === 0) return
+    if (cascadeReplayIndex >= cascadeReplayFrames.length - 1) {
+      setPlaying(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setCascadeReplayIndex(cascadeReplayIndex + 1)
+    }, 750)
+    return () => window.clearTimeout(timer)
+  }, [playing, cascadeReplayIndex, cascadeReplayFrames.length, setCascadeReplayIndex])
+
+  function handleReplayStart() {
+    startCascadeReplay()
+    setPlaying(true)
+  }
+
   if (!cascadeResult) {
     return (
       <div className="graph-sim-bar graph-sim-bar--empty">
@@ -33,8 +53,16 @@ export function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`graph-sim-bar ${compact ? 'graph-sim-bar--compact' : ''}`}>
       <div className="graph-sim-bar__group">
-        <Button size="sm" variant="outline" onClick={startCascadeReplay}>
+        <Button size="sm" variant="outline" onClick={handleReplayStart}>
           <Play size={12} /> Replay
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setPlaying(p => !p)}
+          disabled={cascadeReplayFrames.length <= 1}
+        >
+          {playing ? <Pause size={12} /> : <Play size={12} />}
         </Button>
         <Button size="sm" variant="ghost" disabled={!canPrev} onClick={() => setCascadeReplayIndex(cascadeReplayIndex - 1)}>
           <ChevronLeft size={12} />
@@ -66,7 +94,7 @@ export function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
       {containmentResult && (
         <div className="graph-sim-bar__group">
           <Badge variant="green">
-            -{containmentResult.impactReduction.toFixed(1)} impact · {containmentResult.preventedNodeIds.length} prevented
+            -{containmentResult.impactReduction.toFixed(1)} impact · {containmentResult.preventedNodeIds.length} prevented · {containmentResult.timeSavedMinutes}min saved
           </Badge>
           <Button size="sm" variant="ghost" onClick={clearContainment}>
             <RotateCcw size={12} /> Reset baseline

@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/Accordion'
 import { PublicDataStrip } from '@/components/dashboard/PublicDataStrip'
 import { OperationalHeartbeatStrip } from '@/components/dashboard/OperationalHeartbeatStrip'
+import { DemoOperationsStrip } from '@/components/dashboard/DemoOperationsStrip'
 import { Button } from '@/components/ui/Button'
 import { formatTimeAgo, statusColor, criticalityLabel } from '@/utils/format'
 import type { IKCategory, IKObject, ObjectStatus } from '@/types'
@@ -236,6 +237,7 @@ export function Dashboard() {
 
       <PublicDataStrip sources={publicDataSources} />
       <OperationalHeartbeatStrip pulse={operationalPulse} events={operationalEvents} />
+      <DemoOperationsStrip />
 
       {openIncident && (
         <div className="dashboard-incident-shortcut glass-panel ui-panel">
