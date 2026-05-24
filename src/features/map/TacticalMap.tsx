@@ -10,6 +10,7 @@ import { envConfig } from '@/config/env'
 import { MAP_LAYERS } from '@/config/mapLayers'
 import type { FIRMSAlert, IKObject, WeatherData, OpenSkyFlight } from '@/types'
 import { createIkMarkerHtml, createIkTooltipHtml } from '@/features/map/ikMapMarkers'
+import { getMissionDisplayProgress } from '@/services/missionActivities'
 import { IkObjectDetailPanel } from '@/features/map/IkObjectDetailPanel'
 import { MapOperationalHud } from '@/features/map/MapOperationalHud'
 import { prefetchAllIkObjectMedia } from '@/hooks/useIkObjectMedia'
@@ -326,7 +327,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
       const marker = L.marker(mission.currentPosition, { icon, zIndexOffset: 2000 })
         .addTo(map)
         .bindTooltip(
-          `<div><b>${drone.model}</b><br/>${mission.type.replace(/_/g, ' ')} · ${mission.progressPercent.toFixed(0)}%<br/>${mission.status.replace(/_/g, ' ').toUpperCase()}</div>`,
+          `<div><b>${drone.model}</b><br/>${mission.type.replace(/_/g, ' ')} · ${getMissionDisplayProgress(mission).value.toFixed(0)}%<br/>${mission.status.replace(/_/g, ' ').toUpperCase()}</div>`,
           { className: 'leaflet-bastion-tooltip', direction: 'top', opacity: 1 },
         )
       droneMarkersRef.current.push(marker)
@@ -499,7 +500,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
                 return (
                   <div key={mission.id} className="text-[10px] font-mono text-[#94A3B8]">
                     <span className="text-[#00E5FF]">{drone?.model ?? mission.droneId}</span>
-                    {' · '}{mission.progressPercent.toFixed(0)}% · {mission.status.replace(/_/g, ' ')}
+                    {' · '}{getMissionDisplayProgress(mission).value.toFixed(0)}% · {mission.status.replace(/_/g, ' ')}
                   </div>
                 )
               })}

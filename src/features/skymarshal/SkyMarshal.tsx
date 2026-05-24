@@ -8,6 +8,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { scoreDrones, assignBestDrone } from '@/services/skymarshalEngine'
+import { getMissionDisplayProgress, getMissionLegProgress } from '@/services/missionActivities'
 import { logAction } from '@/services/auditLogService'
 import { agencyLabel, formatTimestamp } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
@@ -360,7 +361,7 @@ export function SkyMarshal() {
                           → {target?.shortName ?? mission.targetObjectId} · {mission.type.replace(/_/g, ' ')}
                         </div>
                       </div>
-                      <Badge variant="cyan">{mission.progressPercent.toFixed(0)}%</Badge>
+                      <Badge variant="cyan">{getMissionDisplayProgress(mission).value.toFixed(0)}%</Badge>
                       <StatusBadge status={mission.status} />
                     </button>
                   )
@@ -437,7 +438,7 @@ export function SkyMarshal() {
                   </div>
                   {drone.mission && (
                     <div className="skymarshal-fleet-row__mission">
-                      ↗ {drone.mission.type.replace(/_/g, ' ')} · {drone.mission.progressPercent.toFixed(0)}%
+                      ↗ {drone.mission.type.replace(/_/g, ' ')} · {getMissionDisplayProgress(drone.mission).value.toFixed(0)}%
                     </div>
                   )}
                 </div>
@@ -475,10 +476,7 @@ export function SkyMarshal() {
 }
 
 function MissionStatsPanel({ mission, drone }: { mission: DroneMission; drone: DroneUnit }) {
-  const progressValue = mission.status === 'on_site' && mission.activityProgress != null
-    ? mission.activityProgress
-    : mission.progressPercent
-  const progressLabel = mission.status === 'on_site' ? 'Postęp pracy na miejscu' : 'Postęp misji'
+  const { value: progressValue, label: progressLabel } = getMissionDisplayProgress(mission)
   const batteryLevel = drone.battery
   const batteryState = batteryTone(batteryLevel)
   const protocolLabel = drone.protocol === 'dji_sdk'
@@ -496,7 +494,7 @@ function MissionStatsPanel({ mission, drone }: { mission: DroneMission; drone: D
         </div>
         <ProgressBar
           value={progressValue}
-          accent={mission.status === 'on_site' ? 'green' : 'cyan'}
+          accent={mission.status === 'on_site' ? 'green' : mission.status === 'returning' ? 'orange' : 'cyan'}
           fixedAccent
           thick
         />

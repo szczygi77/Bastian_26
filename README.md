@@ -20,7 +20,8 @@ npm install
 |------|---------|------|
 | Przeglądarka | `npm run dev` | http://localhost:3000 |
 | Desktop (dev) | `npm start` lub `npm run electron:dev` | Electron + hot reload |
-| Instalator | `npm run electron:build` | `.dmg` (macOS), `.exe` (Windows), `.AppImage` / `.deb` (Linux) |
+| Instalator (release/) | `npm run electron:build` | `.dmg`, `.exe`, `.rpm`, `.AppImage` |
+| **INSTALATORY/** (wszystkie OS) | `npm run instalatory:build` | Gotowe pakiety → [INSTALATORY/README.md](INSTALATORY/README.md) |
 
 ### macOS
 ```bash

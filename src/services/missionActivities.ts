@@ -206,3 +206,34 @@ export function missionStatusLabel(status: DroneMission['status'], activityLabel
   }
   return labels[status]
 }
+
+/** Monotoniczny postęp całej misji (0→100), niezależny od pozycji na trasie powrotnej. */
+export function getMissionDisplayProgress(mission: DroneMission): { value: number; label: string } {
+  switch (mission.status) {
+    case 'dispatched':
+    case 'en_route':
+      return { value: mission.progressPercent * 0.35, label: 'Lot do celu' }
+    case 'on_site':
+      return {
+        value: 35 + (mission.activityProgress ?? 0) * 0.50,
+        label: 'Postęp pracy na miejscu',
+      }
+    case 'returning':
+      return {
+        value: 85 + (mission.activityProgress ?? 100 - mission.progressPercent) * 0.15,
+        label: 'Powrót na bazę',
+      }
+    case 'completed':
+      return { value: 100, label: 'Misja zakończona' }
+    default:
+      return { value: mission.progressPercent, label: 'Postęp misji' }
+  }
+}
+
+/** Postęp bieżącego odcinka trasy (lot w/out, powrót) — rośnie zawsze do przodu. */
+export function getMissionLegProgress(mission: DroneMission): number {
+  if (mission.status === 'returning') {
+    return mission.activityProgress ?? 100 - mission.progressPercent
+  }
+  return mission.progressPercent
+}

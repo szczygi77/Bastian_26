@@ -80,7 +80,7 @@ function advanceOnSiteActivity(
     next.status = 'returning'
     next.progressPercent = 100
     next.activityLabel = 'Powrót na bazę'
-    next.activityProgress = 100
+    next.activityProgress = 0
     if (!next.result) {
       next.result = buildMissionResult(mission.type, targetSnapshot(target), findings)
     }
@@ -148,12 +148,14 @@ export function tickMissionState(
     case 'returning': {
       const progress = Math.max(0, mission.progressPercent - increment)
       next.progressPercent = progress
+      next.activityProgress = 100 - progress
       next.currentPosition = interpolateCoords(mission.routeOrigin, mission.targetCoordinates, progress)
-      next.activityLabel = `Powrót na bazę — ${(100 - progress).toFixed(0)}% drogi`
+      next.activityLabel = `Powrót na bazę — ${next.activityProgress.toFixed(0)}% drogi`
       dronePatch = { coordinates: next.currentPosition, status: 'on_mission' }
       if (progress <= 0) {
         next.status = 'completed'
         next.progressPercent = 0
+        next.activityProgress = 100
         next.currentPosition = mission.routeOrigin
         next.activityLabel = 'Misja zakończona'
         if (!next.result && (mission.findings?.length ?? 0) > 0) {

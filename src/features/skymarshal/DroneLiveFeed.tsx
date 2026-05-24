@@ -3,7 +3,7 @@ import { Camera, Radio } from 'lucide-react'
 import type { DroneMission, DroneUnit } from '@/types'
 import { feedModeForMission } from '@/data/droneMedia'
 import { agencyLabel } from '@/utils/format'
-import { missionStatusLabel } from '@/services/missionActivities'
+import { missionStatusLabel, getMissionLegProgress } from '@/services/missionActivities'
 import { Badge } from '@/components/ui/Badge'
 import { DroneSatelliteFeed } from '@/components/camera/DroneSatelliteFeed'
 
@@ -22,7 +22,7 @@ function altitudeForMission(mission: DroneMission): number {
     if (mission.type === 'perimeter_monitoring') return 55
     return 42
   }
-  if (mission.status === 'returning') return 30 + mission.progressPercent * 0.3
+  if (mission.status === 'returning') return 30 + getMissionLegProgress(mission) * 0.3
   return 40 + mission.progressPercent * 0.8
 }
 

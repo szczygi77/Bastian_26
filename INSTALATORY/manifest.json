@@ -1,0 +1,112 @@
+{
+  "generatedAt": "2026-05-24T08:51:21.955Z",
+  "version": {
+    "name": "bastion",
+    "productName": "BASTION",
+    "description": "Offline-first centrum dowodzenia BASTION — infrastruktura krytyczna",
+    "author": "SpaceShield / m&m",
+    "homepage": "https://gitlab.com/michas7/bastion",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "dist-electron/main.js",
+    "engines": {
+      "node": ">=20.19.0"
+    },
+    "scripts": {
+      "predev": "node scripts/ensure-node.mjs",
+      "prestart": "node scripts/ensure-node.mjs",
+      "prebuild": "node scripts/ensure-node.mjs",
+      "dev": "vite",
+      "build": "tsc -b && vite build",
+      "lint": "eslint .",
+      "preview": "vite preview",
+      "start": "node scripts/electron-dev.mjs",
+      "electron:dev": "node scripts/electron-dev.mjs",
+      "electron:build": "node scripts/electron-build.mjs",
+      "instalatory:build": "node scripts/build-instalatory.mjs",
+      "instalatory:build:all": "node scripts/build-instalatory.mjs -- --all",
+      "instalatory:copy": "node scripts/build-instalatory.mjs -- --copy-only",
+      "icons:generate": "node scripts/generate-app-icon.mjs",
+      "regions:fetch-photos": "node scripts/fetch-region-photos.mjs",
+      "regions:fetch-emblems": "node scripts/fetch-region-emblems.mjs",
+      "media:fetch-google": "node scripts/fetch-ik-google-images.mjs"
+    },
+    "dependencies": {
+      "@fontsource/inter": "^5.2.8",
+      "@fontsource/jetbrains-mono": "^5.2.8",
+      "@supabase/supabase-js": "^2.106.1",
+      "@tanstack/react-query": "^5.100.14",
+      "clsx": "^2.1.1",
+      "d3": "^7.9.0",
+      "date-fns": "^4.3.0",
+      "framer-motion": "^12.40.0",
+      "hls.js": "^1.6.16",
+      "html2canvas": "^1.4.1",
+      "idb": "^8.0.3",
+      "jspdf": "^4.2.1",
+      "leaflet": "^1.9.4",
+      "lucide-react": "^1.16.0",
+      "react": "^19.2.6",
+      "react-dom": "^19.2.6",
+      "react-leaflet": "^5.0.0",
+      "react-router-dom": "^7.15.1",
+      "tailwind-merge": "^3.6.0",
+      "zustand": "^5.0.13"
+    },
+    "devDependencies": {
+      "@eslint/js": "^10.0.1",
+      "@tailwindcss/vite": "^4.3.0",
+      "@types/d3": "^7.4.3",
+      "@types/leaflet": "^1.9.21",
+      "@types/node": "^24.12.3",
+      "@types/react": "^19.2.14",
+      "@types/react-dom": "^19.2.3",
+      "@vitejs/plugin-react": "^6.0.1",
+      "autoprefixer": "^10.5.0",
+      "concurrently": "^9.2.1",
+      "electron": "^42.2.0",
+      "electron-builder": "^26.8.1",
+      "esbuild": "^0.28.0",
+      "eslint": "^10.3.0",
+      "eslint-plugin-react-hooks": "^7.1.1",
+      "eslint-plugin-react-refresh": "^0.5.2",
+      "globals": "^17.6.0",
+      "postcss": "^8.5.15",
+      "tailwindcss": "^4.3.0",
+      "typescript": "~6.0.2",
+      "typescript-eslint": "^8.59.2",
+      "vite": "^8.0.12",
+      "vite-plugin-electron": "^0.29.1",
+      "vite-plugin-electron-renderer": "^0.14.7",
+      "wait-on": "^9.0.10"
+    }
+  },
+  "buildHost": "darwin-arm64",
+  "artifacts": [
+    {
+      "platform": "linux",
+      "name": "BASTION-1.0.0-linux-aarch64.rpm"
+    },
+    {
+      "platform": "linux",
+      "name": "BASTION-1.0.0-linux-x86_64.AppImage"
+    },
+    {
+      "platform": "linux",
+      "name": "BASTION-1.0.0-linux-x86_64.rpm"
+    },
+    {
+      "platform": "macos",
+      "name": "BASTION-1.0.0-mac-arm64.dmg"
+    },
+    {
+      "platform": "macos",
+      "name": "BASTION-1.0.0-mac-x64.dmg"
+    },
+    {
+      "platform": "windows",
+      "name": "BASTION-Setup-1.0.0-win-x64.exe"
+    }
+  ],
+  "missingPlatforms": []
+}

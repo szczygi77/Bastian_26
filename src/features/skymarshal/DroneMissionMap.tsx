@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
+import { getMissionDisplayProgress, getMissionLegProgress } from '@/services/missionActivities'
 import type { DroneMission, DroneUnit, IKObject } from '@/types'
 import { MAP_LAYERS } from '@/config/mapLayers'
 
@@ -17,6 +18,9 @@ export function DroneMissionMap({
   const droneMarkerRef = useRef<L.Marker | null>(null)
   const routeRef = useRef<L.Polyline | null>(null)
   const targetMarkerRef = useRef<L.CircleMarker | null>(null)
+
+  const legProgress = getMissionLegProgress(mission)
+  const overallProgress = getMissionDisplayProgress(mission)
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return
@@ -79,7 +83,7 @@ export function DroneMissionMap({
 
     droneMarkerRef.current = L.marker(mission.currentPosition, { icon: droneIcon, zIndexOffset: 1000 })
       .addTo(map)
-      .bindTooltip(`${drone.model} · ${mission.progressPercent.toFixed(0)}%`, {
+      .bindTooltip(`${drone.model} · ${overallProgress.value.toFixed(0)}%`, {
         className: 'leaflet-bastion-tooltip',
         direction: 'top',
         opacity: 1,
@@ -105,8 +109,8 @@ export function DroneMissionMap({
   useEffect(() => {
     if (!droneMarkerRef.current) return
     droneMarkerRef.current.setLatLng(mission.currentPosition)
-    droneMarkerRef.current.setTooltipContent(`${drone.model} · ${mission.progressPercent.toFixed(0)}%`)
-  }, [mission.currentPosition, mission.progressPercent, drone.model])
+    droneMarkerRef.current.setTooltipContent(`${drone.model} · ${overallProgress.value.toFixed(0)}%`)
+  }, [mission.currentPosition, overallProgress.value, drone.model])
 
   return (
     <div className="skymarshal-map">
@@ -115,7 +119,10 @@ export function DroneMissionMap({
       <div className="skymarshal-map__legend">
         <span><i className="skymarshal-map__dot skymarshal-map__dot--drone" /> Dron ({drone.id})</span>
         <span><i className="skymarshal-map__dot skymarshal-map__dot--target" /> Cel ({target?.shortName ?? mission.targetObjectId})</span>
-        <span>Postęp trasy: {mission.progressPercent.toFixed(0)}%</span>
+        <span>
+          {mission.status === 'returning' ? 'Powrót' : 'Lot'}: {legProgress.toFixed(0)}%
+          {' · '}Misja: {overallProgress.value.toFixed(0)}%
+        </span>
       </div>
     </div>
   )
