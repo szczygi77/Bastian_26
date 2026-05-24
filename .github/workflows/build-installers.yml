@@ -1,0 +1,71 @@
+name: Build Installers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ─── Windows (NSIS + Portable) ───────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & Package (Windows)
+        run: |
+          npm run build
+          npx electron-builder --win --x64 --arm64 --publish never
+        env:
+          ELECTRON: 'true'
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            release/*.exe
+            release/*.zip
+          retention-days: 30
+
+  # ─── Linux (AppImage + RPM + DEB) ────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & Package (Linux)
+        run: |
+          npm run build
+          npx electron-builder --linux --publish never
+        env:
+          ELECTRON: 'true'
+
+      - name: Upload Linux installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installers
+          path: |
+            release/*.AppImage
+            release/*.rpm
+            release/*.deb
+          retention-days: 30

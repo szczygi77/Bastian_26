@@ -16,7 +16,7 @@ if (process.platform === 'darwin') {
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:3000'
+const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 function resolveIconPath(): string {
   const publicDir = path.join(__dirname, '../public')
@@ -95,11 +95,9 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  if (process.env.NODE_ENV !== 'production' || VITE_DEV_SERVER_URL.startsWith('http')) {
+  if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
-    if (process.env.NODE_ENV === 'development') {
-      win.webContents.openDevTools({ mode: 'detach' })
-    }
+    win.webContents.openDevTools({ mode: 'detach' })
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }

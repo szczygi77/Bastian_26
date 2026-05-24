@@ -39,6 +39,8 @@ build:macos:
   extends: .build_template
   tags:
     - saas-macos-medium-m1
+  variables:
+    ELECTRON: "true"
   script:
     - npm run build
     - npx electron-builder --mac --publish never
@@ -49,8 +51,10 @@ build:macos:
 build:linux:
   extends: .build_template
   image: node:22-bookworm
+  variables:
+    ELECTRON: "true"
   script:
-    - apt-get update && apt-get install -y rpm zip
+    - apt-get update && apt-get install -y rpm zip fakeroot
     - npm run build
     - npx electron-builder --linux --publish never
     - node scripts/build-instalatory.mjs -- --copy-only

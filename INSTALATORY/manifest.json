@@ -1,70 +1,25 @@
 {
-  "generatedAt": "2026-05-24T09:13:14.909Z",
+  "generatedAt": "2026-05-24T09:36:14.496Z",
   "version": "1.0.0",
   "buildHost": "darwin-arm64",
   "artifacts": [
     {
-      "platform": "linux",
-      "name": "BASTION-1.0.0-linux-aarch64.rpm",
-      "sizeBytes": 102567937,
-      "sha256": "bfa3654ee0084c9c855e42512f6a115df8ba877e8be832c416176ca8dccfaeb8"
-    },
-    {
-      "platform": "linux",
-      "name": "BASTION-1.0.0-linux-x86_64.AppImage",
-      "sizeBytes": 162598857,
-      "sha256": "5552d4507fc0e2e68c5bef113afd6ad834888ba006756685a46594981ac55799"
-    },
-    {
-      "platform": "linux",
-      "name": "BASTION-1.0.0-linux-x86_64.rpm",
-      "sizeBytes": 107853133,
-      "sha256": "9b927eaa5e4d8bb7737ccc40090999c324385401b01facbb294a7520b9994020"
-    },
-    {
       "platform": "macos",
       "name": "BASTION-1.0.0-mac-arm64.dmg",
-      "sizeBytes": 155221304,
-      "sha256": "94681dd64458388b651e96db2c9d4c4ebf400ab02e1d87201c2c8c7bda123449"
+      "sizeBytes": 154692419,
+      "sha256": "40e9817b5131c6546394f872a96252e04f875cec4c73e2fcbf125e825a758680"
     },
     {
       "platform": "macos",
       "name": "BASTION-1.0.0-mac-x64.dmg",
-      "sizeBytes": 163404878,
-      "sha256": "832242c3b3d79aee61eb0ab8405773aa6abd2765319146c45a324ba77ac7cca2"
-    },
-    {
-      "platform": "windows",
-      "name": "BASTION-Portable-1.0.0-win-arm64.exe",
-      "sizeBytes": 132174178,
-      "sha256": "c3d17835f44455a9258fcb67e2f1861f76d308aa97a35871c39d378fc39803aa"
-    },
-    {
-      "platform": "windows",
-      "name": "BASTION-Portable-1.0.0-win-x64.exe",
-      "sizeBytes": 131236359,
-      "sha256": "59cb1865319373bae98ed51ca5ed4d3380b5d4ec8ee2436ec122f27cc3a31e1a"
-    },
-    {
-      "platform": "windows",
-      "name": "BASTION-Setup-1.0.0-win-arm64.exe",
-      "sizeBytes": 132312454,
-      "sha256": "ec517ab7906413275697b937d22efa40057f60fe5a79690e73f686c7ee7caf86"
-    },
-    {
-      "platform": "windows",
-      "name": "BASTION-Setup-1.0.0-win-x64.exe",
-      "sizeBytes": 131374538,
-      "sha256": "e66e1a90b8c125ddfb1bf86dc858418e19681dafc7501297e684d29cb12a4cf9"
-    },
-    {
-      "platform": "windows",
-      "name": "BASTION-1.0.0-win-x64-portable.zip",
-      "sizeBytes": 185368275,
-      "sha256": "579fd0e1370fbd0327c5e1a5f38f7ee3f844fe2f94f3829f92df0722fcf3fe45"
+      "sizeBytes": 161102358,
+      "sha256": "1a540281c0c6315be5304e3a1d0a233d88ffc083e7870e8036bdc97fcf46a367"
     }
   ],
-  "missingPlatforms": [],
+  "missingPlatforms": [
+    "windows",
+    "linux"
+  ],
   "windowsNotes": {
     "requiredOs": "Windows 10/11 64-bit (Intel/AMD) lub Windows 11 ARM64",
     "lfsWarning": "Plik .exe musi mieć ~125 MB. Jeśli ma ~130 B — pobierz przez git lfs pull lub GitLab → Download raw.",
