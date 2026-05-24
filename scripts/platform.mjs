@@ -1,6 +1,9 @@
 import { createRequire } from 'module'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { ensureNodeVersion } from './ensure-node.mjs'
+
+ensureNodeVersion()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const root = path.join(__dirname, '..')

@@ -8,9 +8,10 @@ Offline-first platforma świadomości sytuacyjnej infrastruktury krytycznej — 
 
 ## Uruchomienie
 
-Wymagania: **Node.js 20+**, npm 10+ (Windows / macOS / Linux).
+Wymagania: **Node.js 20.19+ lub 22.12+** (Vite 8), npm 10+ (Windows / macOS / Linux).
 
 ```bash
+nvm use              # projekt ma .nvmrc → Node 22
 cp .env.example .env   # uzupełnij klucze API — plik .env nie trafia do gita
 npm install
 ```

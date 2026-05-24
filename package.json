@@ -5,7 +5,13 @@
   "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
+    "predev": "node scripts/ensure-node.mjs",
+    "prestart": "node scripts/ensure-node.mjs",
+    "prebuild": "node scripts/ensure-node.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

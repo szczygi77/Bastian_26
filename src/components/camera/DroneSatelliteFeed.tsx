@@ -3,6 +3,7 @@ import type { DroneMission } from '@/types'
 import {
   computeDroneFeedCamera,
   missionTypeFeedHint,
+  preloadVisibleDroneTiles,
   renderDroneSatelliteFrame,
   type DroneFeedVisualMode,
 } from '@/services/droneFeedRenderer'
@@ -26,6 +27,8 @@ export function DroneSatelliteFeed({
   const containerRef = useRef<HTMLDivElement>(null)
   const missionRef = useRef(mission)
   const modeRef = useRef(mode)
+  const phaseStartRef = useRef(performance.now())
+  const smoothProgressRef = useRef(mission.progressPercent)
 
   useEffect(() => {
     missionRef.current = mission
@@ -36,19 +39,23 @@ export function DroneSatelliteFeed({
   }, [mode])
 
   useEffect(() => {
+    phaseStartRef.current = performance.now()
+    smoothProgressRef.current = mission.progressPercent
+  }, [mission.id, mission.status])
+
+  useEffect(() => {
     let raf = 0
-    let rendering = false
-    const start = performance.now()
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick)
-      if (rendering) return
 
       const canvas = canvasRef.current
       const container = containerRef.current
       if (!canvas || !container) return
 
       const rect = container.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return
+
       const dpr = window.devicePixelRatio || 1
       const w = Math.max(1, Math.floor(rect.width * dpr))
       const h = Math.max(1, Math.floor(rect.height * dpr))
@@ -56,20 +63,25 @@ export function DroneSatelliteFeed({
         canvas.width = w
         canvas.height = h
       }
+
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      rendering = true
-      const timeSec = (now - start) / 1000
-      const camera = computeDroneFeedCamera(missionRef.current, timeSec)
-      void renderDroneSatelliteFrame(ctx, w, h, camera, modeRef.current, timeSec).finally(() => {
-        rendering = false
-      })
+      const timeSec = (now - phaseStartRef.current) / 1000
+      const currentMission = missionRef.current
+      smoothProgressRef.current += (currentMission.progressPercent - smoothProgressRef.current) * 0.12
+      const cameraMission =
+        Math.abs(currentMission.progressPercent - smoothProgressRef.current) < 0.05
+          ? currentMission
+          : { ...currentMission, progressPercent: smoothProgressRef.current }
+      const camera = computeDroneFeedCamera(cameraMission, timeSec)
+      renderDroneSatelliteFrame(ctx, w, h, camera, modeRef.current, timeSec, cameraMission)
+      preloadVisibleDroneTiles(camera, w, h)
     }
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [mission.id])
+  }, [mission.id, mission.status])
 
   const phaseClass =
     mission.status === 'on_site'
