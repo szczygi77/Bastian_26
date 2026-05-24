@@ -27,6 +27,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   report_export: 'EKSPORT RAPORTU',
   recommendation_approve: 'ZATWIERDZENIE REKOMENDACJI',
   recommendation_reject: 'ODRZUCENIE REKOMENDACJI',
+  incident_contain: 'OPANOWANIE INCYDENTU',
+  incident_resolve: 'ZAMKNIĘCIE INCYDENTU',
+  incident_handover: 'PRZEKAZANIE ZMIANY',
   system_config: 'KONFIGURACJA SYSTEMU',
   data_sync: 'SYNCHRONIZACJA DANYCH',
 }

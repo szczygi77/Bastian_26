@@ -11,6 +11,7 @@ import { MAP_LAYERS } from '@/config/mapLayers'
 import type { FIRMSAlert, IKObject, WeatherData, OpenSkyFlight } from '@/types'
 import { createIkMarkerHtml, createIkTooltipHtml } from '@/features/map/ikMapMarkers'
 import { IkObjectDetailPanel } from '@/features/map/IkObjectDetailPanel'
+import { MapOperationalHud } from '@/features/map/MapOperationalHud'
 import { prefetchAllIkObjectMedia } from '@/hooks/useIkObjectMedia'
 import { getCachedIkObjectMedia, subscribeIkObjectMedia } from '@/services/objectMediaService'
 
@@ -46,6 +47,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
   const fireMarkersRef = useRef<L.CircleMarker[]>([])
   const droneMarkersRef = useRef<L.Marker[]>([])
   const droneRoutesRef = useRef<L.Polyline[]>([])
+  const sectorOverlaysRef = useRef<L.Circle[]>([])
   const baseLayersRef = useRef<Record<string, L.TileLayer>>({})
 
   const {
@@ -62,6 +64,8 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
     focusedDroneMissionId,
     setFocusedDroneMissionId,
     incidentMapFilter,
+    containmentRecovery,
+    operationalTelemetry,
   } = useAppStore()
   const boundsFittedRef = useRef(false)
 
@@ -161,14 +165,15 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
       // Impact zones
       if (layers.impactZones && isAffected) {
         const cascadeNode = cascadeResult?.nodes.find(n => n.objectId === obj.id)
+        const isRecovering = containmentRecovery?.recoveringNodeIds.includes(obj.id)
         const radius = cascadeNode ? (cascadeNode.impactScore / 100) * 800 : 300
         const zone = L.circle([obj.coordinates[0], obj.coordinates[1]], {
           radius,
-          fillColor: '#EF4444',
-          fillOpacity: 0.06,
-          color: '#EF4444',
-          weight: 1,
-          dashArray: '4 4',
+          fillColor: isRecovering ? '#22C55E' : '#EF4444',
+          fillOpacity: isRecovering ? 0.05 : 0.06,
+          color: isRecovering ? '#22C55E' : '#EF4444',
+          weight: isRecovering ? 1 : 1,
+          dashArray: isRecovering ? '2 6' : '4 4',
         }).addTo(map)
         zonesRef.current.push(zone)
       }
@@ -181,19 +186,52 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
           const depObj = ikObjects.find(o => o.id === depId)
           if (!depObj) continue
           const isActive = affectedIds.has(obj.id) || affectedIds.has(depId)
+          const isContained = containmentRecovery?.containedNodeIds.includes(obj.id)
+            || containmentRecovery?.containedNodeIds.includes(depId)
           const line = L.polyline(
             [obj.coordinates, depObj.coordinates],
             {
-              color: isActive ? '#EF4444' : 'rgba(0,229,255,0.25)',
-              weight: isActive ? 2 : 1,
-              dashArray: isActive ? undefined : '4 6',
+              color: isContained ? '#22C55E' : isActive ? '#EF4444' : 'rgba(0,229,255,0.25)',
+              weight: isActive ? 2.5 : 1,
+              dashArray: isActive && !isContained ? undefined : '4 6',
+              opacity: isActive ? 0.85 : 0.45,
             }
           ).addTo(map)
           linesRef.current.push(line)
         }
       }
     }
-  }, [ikObjects, cascadeResult, layers, incidentMode, incidentMapFilter])
+  }, [ikObjects, cascadeResult, layers, incidentMode, incidentMapFilter, containmentRecovery])
+
+  // Sector stress overlays
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    sectorOverlaysRef.current.forEach(z => z.remove())
+    sectorOverlaysRef.current = []
+
+    const stress = operationalTelemetry.stressLevel
+    if (stress < 20) return
+
+    const sectors: Array<[number, number]> = [
+      [mapCenter[0] + 0.06, mapCenter[1] + 0.04],
+      [mapCenter[0] - 0.05, mapCenter[1] + 0.06],
+      [mapCenter[0] + 0.02, mapCenter[1] - 0.07],
+    ]
+
+    for (const coords of sectors) {
+      const overlay = L.circle(coords, {
+        radius: 1200 + stress * 8,
+        fillColor: '#FF8A1F',
+        fillOpacity: 0.025 + stress * 0.0003,
+        color: 'rgba(255,138,31,0.15)',
+        weight: 1,
+        dashArray: '8 12',
+      }).addTo(map)
+      sectorOverlaysRef.current.push(overlay)
+    }
+  }, [mapCenter, operationalTelemetry.stressLevel])
 
   useEffect(() => {
     for (const obj of ikObjects) {
@@ -423,6 +461,7 @@ export function TacticalMap({ incidentMode = false }: { incidentMode?: boolean }
 
       <div className={incidentMode ? 'tactical-map__viewport' : 'flex-1 relative'}>
         <div ref={mapRef} className="absolute inset-0" />
+        <MapOperationalHud />
 
         {selectedObj && !incidentMode && (
           <IkObjectDetailPanel object={selectedObj} onClose={() => setSelectedObj(null)} />

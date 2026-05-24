@@ -155,6 +155,12 @@ export function DecisionSupport() {
                           <div className="flex gap-3 text-[10px] font-mono text-[#66778B] flex-wrap">
                             <span>👤 {action.responsible}</span>
                             <span>⏱ {action.timeframe}</span>
+                            {action.impactPreview?.impactReductionPct != null && action.impactPreview.impactReductionPct > 0 && (
+                              <span className="text-[#22C55E]">↓{action.impactPreview.impactReductionPct}% impact</span>
+                            )}
+                            {action.impactPreview?.collateralRiskPct != null && (
+                              <span className="text-[#F59E0B]">collateral {action.impactPreview.collateralRiskPct}%</span>
+                            )}
                             {action.executionState && (
                               <Badge variant={
                                 action.executionState === 'executed' ? 'green' :
@@ -165,6 +171,16 @@ export function DecisionSupport() {
                               </Badge>
                             )}
                           </div>
+                          {action.tradeoffs && action.tradeoffs.length > 0 && (
+                            <div className="mt-2 text-[10px] font-mono text-[#F59E0B] leading-relaxed">
+                              Tradeoff: {action.tradeoffs[0]}
+                            </div>
+                          )}
+                          {action.consequences && action.consequences.length > 0 && (
+                            <div className="mt-1 text-[10px] font-mono text-[#94A3B8] leading-relaxed">
+                              {action.consequences[0]}
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => !action.approved && handleApproveAction(rec, action.id)}

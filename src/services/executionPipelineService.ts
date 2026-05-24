@@ -5,6 +5,7 @@ import type {
   ActionExecution,
   ActionExecutionState,
   CascadeResult,
+  ContainmentSimulationResult,
   IKObject,
   Incident,
   Recommendation,
@@ -27,8 +28,10 @@ export interface ExecutionOutcome {
   execution: ActionExecution
   auditDetails: string
   cascadeResult?: CascadeResult | null
+  containmentResult?: ContainmentSimulationResult | null
   objectStatusUpdates: Array<{ id: string; status: IKObject['status'] }>
   incidentPatch?: Partial<Incident>
+  startRecovery?: boolean
 }
 
 function inferContainmentTargets(description: string, cascade: CascadeResult | null): string[] {
@@ -61,6 +64,8 @@ export async function buildExecutionOutcome(ctx: ExecutionContext): Promise<Exec
 
   const objectStatusUpdates: Array<{ id: string; status: IKObject['status'] }> = []
   let nextCascade = cascadeResult
+  let containmentResult: ContainmentSimulationResult | null = null
+  let startRecovery = false
   let incidentPatch: Partial<Incident> | undefined
 
   try {
@@ -90,13 +95,18 @@ export async function buildExecutionOutcome(ctx: ExecutionContext): Promise<Exec
     const containmentTargets = inferContainmentTargets(action.description, cascadeResult)
     if (containmentTargets.length > 0 && cascadeResult) {
       const sim = simulateContainment(ikObjects, cascadeResult, containmentTargets)
+      containmentResult = sim
       nextCascade = sim.contained
+      startRecovery = true
       for (const id of containmentTargets) {
         objectStatusUpdates.push({ id, status: 'operational' })
       }
+      for (const id of sim.preventedNodeIds.slice(0, 4)) {
+        objectStatusUpdates.push({ id, status: 'degraded' })
+      }
       if (incident) {
         incidentPatch = {
-          notes: `${incident.notes}\n[EXEC] Containment: ${containmentTargets.join(', ')} · prevented ${sim.preventedNodeIds.length} nodes · -${sim.impactReduction.toFixed(1)} impact`,
+          notes: `${incident.notes}\n[EXEC] Containment: ${containmentTargets.join(', ')} · prevented ${sim.preventedNodeIds.length} nodes · -${sim.impactReduction.toFixed(1)} impact · residual ${sim.residualRisk.toFixed(0)}/100`,
         }
       }
     }
@@ -112,8 +122,10 @@ export async function buildExecutionOutcome(ctx: ExecutionContext): Promise<Exec
       execution,
       auditDetails: `Wykonano akcję [${action.priority}]: ${action.description}`,
       cascadeResult: nextCascade,
+      containmentResult,
       objectStatusUpdates,
       incidentPatch,
+      startRecovery,
     }
   } catch (error) {
     execution.state = 'failed'

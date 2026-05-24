@@ -1,5 +1,6 @@
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { OperationalTelemetryRail } from '@/components/dashboard/OperationalTelemetryRail'
 import { useElectronShell } from '@/hooks/useElectronShell'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
               background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,138,31,0.06) 0%, transparent 70%)',
             }} />
-            <div style={{ position: 'relative', zIndex: 1, flex: 1, overflow: 'hidden' }}>{children}</div>
+            <div style={{ position: 'relative', zIndex: 1, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{children}</div>
+              <OperationalTelemetryRail />
+            </div>
           </main>
         </div>
       </div>

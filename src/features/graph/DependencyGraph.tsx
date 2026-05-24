@@ -7,6 +7,7 @@ import { statusColor, criticalityLabel } from '@/utils/format'
 import { Card } from '@/components/ui/Card'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { GraphSimulationBar } from '@/features/graph/GraphSimulationBar'
+import { GraphComputeBar } from '@/features/graph/GraphComputeBar'
 import type { IKObject } from '@/types'
 
 interface D3Node extends d3.SimulationNodeDatum {
@@ -42,6 +43,8 @@ export const DependencyGraph = memo(function DependencyGraph({
   const {
     ikObjects, cascadeResult, focusedIkObjectId, setFocusedIkObjectId,
     cascadeReplayFrames, cascadeReplayIndex, setSelectedNodeForContainment,
+    containmentResult, containmentRecovery, updateGraphComputeState,
+    selectedNodeForContainment,
   } = useAppStore()
   const [selectedNode, setSelectedNode] = useState<IKObject | null>(null)
   const [simRunning, setSimRunning] = useState(false)
@@ -150,8 +153,22 @@ export const DependencyGraph = memo(function DependencyGraph({
 
     simulationRef.current = simulation
 
+    const containedIds = new Set(containmentResult?.containedNodeIds ?? [])
+    const preventedIds = new Set(containmentResult?.preventedNodeIds ?? [])
+    const recoveringIds = new Set(containmentRecovery?.recoveringNodeIds ?? [])
+
     const link = g.append('g').selectAll('line')
       .data(links).enter().append('line')
+      .attr('class', d => {
+        const src = typeof d.source === 'object' ? (d.source as D3Node).id : d.source
+        const tgt = typeof d.target === 'object' ? (d.target as D3Node).id : d.target
+        const active = affectedIds.has(src) || affectedIds.has(tgt)
+        const classes = ['graph-edge']
+        if (active) classes.push('graph-edge--active')
+        if (active && (containedIds.has(src) || containedIds.has(tgt))) classes.push('graph-edge--contained')
+        if (d.type === 'backup') classes.push('graph-edge--backup')
+        return classes.join(' ')
+      })
       .attr('stroke', d => {
         const src = typeof d.source === 'object' ? (d.source as D3Node).id : d.source
         const tgt = typeof d.target === 'object' ? (d.target as D3Node).id : d.target
@@ -193,6 +210,15 @@ export const DependencyGraph = memo(function DependencyGraph({
     }
 
     nodeGroup.append('path')
+      .attr('class', d => {
+        const classes = ['graph-node']
+        if (isAffected(d.id)) classes.push('graph-node--affected')
+        if (containedIds.has(d.id)) classes.push('graph-node--contained')
+        if (preventedIds.has(d.id)) classes.push('graph-node--prevented')
+        if (recoveringIds.has(d.id)) classes.push('graph-node--recovering')
+        if (selectedNodeForContainment === d.id) classes.push('graph-node--selected')
+        return classes.join(' ')
+      })
       .attr('d', d => hexPath(14 + d.criticality * 2.5))
       .attr('fill', d => isAffected(d.id) ? 'rgba(239,68,68,0.15)' : 'rgba(16,22,30,0.85)')
       .attr('stroke', d => isAffected(d.id) ? '#EF4444' : statusColor(d.status))
@@ -239,11 +265,15 @@ export const DependencyGraph = memo(function DependencyGraph({
       nodeGroup.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`)
     })
 
-    simulation.on('end', () => setSimRunning(false))
+    simulation.on('end', () => {
+      setSimRunning(false)
+      updateGraphComputeState(false)
+    })
     setSimRunning(true)
+    updateGraphComputeState(true)
 
     return () => { simulation.stop() }
-  }, [ikObjects, cascadeResult, revealedIds])
+  }, [ikObjects, cascadeResult, revealedIds, containmentResult, containmentRecovery, selectedNodeForContainment, updateGraphComputeState])
 
   const selectedIKObj = selectedNode ? ikObjects.find(o => o.id === selectedNode.id) : null
   const isIncident = variant === 'incident'
@@ -263,6 +293,7 @@ export const DependencyGraph = memo(function DependencyGraph({
     return (
       <div className="graph-page graph-page--incident">
         <GraphSimulationBar compact />
+        <GraphComputeBar compact />
         <svg ref={svgRef} className="graph-page__svg graph-page__svg--incident" />
       </div>
     )
@@ -275,6 +306,7 @@ export const DependencyGraph = memo(function DependencyGraph({
   return (
     <div className="graph-page">
       <GraphSimulationBar />
+      <GraphComputeBar />
       <div className="graph-page__body">
       <div className="graph-page__canvas">
         <div className="graph-page__toolbar glass-panel ui-panel">

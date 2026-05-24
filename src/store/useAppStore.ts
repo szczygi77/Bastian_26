@@ -3,14 +3,17 @@ import type {
   Alert,
   AuditEntry,
   CascadeResult,
+  ContainmentRecoveryState,
   ContainmentSimulationResult,
   DroneMission,
   DroneUnit,
+  GraphComputeState,
   IKObject,
   Incident,
   NationalRegionSummary,
   OperationalEvent,
   OperationalPulse,
+  OperationalTelemetry,
   Operator,
   Recommendation,
   ScenarioRun,
@@ -20,7 +23,7 @@ import type {
 import { IK_OBJECTS, STALOWA_WOLA_CENTER } from '@/data/stalowa-wola'
 import { DRONE_FLEET } from '@/data/drones'
 import { logAction } from '@/services/auditLogService'
-import { refreshPublicDataLayer } from '@/services/dataSyncService'
+import { orchestratePublicDataSync } from '@/services/apiOrchestrator'
 import { getSystemHealth, buildSystemHealth } from '@/services/systemHealthService'
 import { getPublicDataSources } from '@/services/publicDataStatusService'
 import type { PublicDataSourceStatus } from '@/types'
@@ -40,6 +43,22 @@ import {
 import { simulateContainment, buildCascadeReplayFrames } from '@/services/cascadeSimulationService'
 import type { CascadeReplayFrame } from '@/types'
 import { buildNationalOverview } from '@/services/nationalOverviewService'
+import {
+  applyIkStatusPatches,
+  commitCascadeState,
+} from '@/services/operationalCommitService'
+import {
+  buildClosureNote,
+  buildHandoverNote,
+  canCloseIncident,
+  restoreCascadeForIncident,
+} from '@/services/incidentLifecycleService'
+import {
+  buildGraphComputeState,
+  createInitialTelemetry,
+  tickContainmentRecovery,
+  tickOperationalTelemetry,
+} from '@/services/operationalTelemetryService'
 import {
   applyIkStates,
   saveAlert,
@@ -85,6 +104,11 @@ interface AppState {
   incidents: Incident[]
   addIncident: (incident: Incident) => void
   updateIncident: (id: string, patch: Partial<Incident>) => void
+  restoreIncidentContext: (incidentId?: string, forceScenarioReapply?: boolean) => boolean
+  containIncident: (incidentId: string, summary: string) => void
+  handoverIncident: (incidentId: string, toShift: string, summary: string) => void
+  resolveIncident: (incidentId: string, summary: string) => void
+  abortScenarioOperation: (summary?: string) => void
 
   // Scenario
   activeScenarioRun: ScenarioRun | null
@@ -113,7 +137,12 @@ interface AppState {
   // Operational heartbeat
   operationalEvents: OperationalEvent[]
   operationalPulse: OperationalPulse | null
+  operationalTelemetry: OperationalTelemetry
+  graphComputeState: GraphComputeState
+  containmentRecovery: ContainmentRecoveryState | null
   runOperationalHeartbeat: () => Promise<void>
+  tickOperationalTelemetry: () => void
+  updateGraphComputeState: (simRunning?: boolean) => void
 
   // National overview
   nationalRegions: NationalRegionSummary[]
@@ -255,6 +284,231 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
+  restoreIncidentContext: (incidentId, forceScenarioReapply = false) => {
+    const state = get()
+    const incident = state.incidents.find(i =>
+      i.id === (incidentId ?? state.activeIncidentId ?? state.incidents.find(x => x.status === 'open')?.id),
+    )
+    if (!incident || incident.status === 'resolved') return false
+
+    const restored = restoreCascadeForIncident({
+      incident,
+      ikObjects: state.ikObjects,
+      activeScenarioRun: state.activeScenarioRun,
+      forceScenarioReapply,
+    })
+
+    const replayFrames = buildCascadeReplayFrames(restored.cascadeResult)
+    const events = [
+      createOperationalEvent(
+        'graph_compute',
+        `Przywrócono kontekst kaskady (${restored.restoredFrom}) · ${restored.cascadeResult.affectedCount} węzłów`,
+        'info',
+      ),
+    ]
+
+    set(s => ({
+      ikObjects: restored.ikObjects,
+      cascadeResult: restored.cascadeResult,
+      activeCascadeView: restored.cascadeResult,
+      cascadeReplayFrames: replayFrames,
+      cascadeReplayIndex: 0,
+      incidentMapFilter: [
+        restored.cascadeResult.incidentObjectId,
+        ...restored.cascadeResult.nodes.map(n => n.objectId),
+      ],
+      graphComputeState: buildGraphComputeState({
+        cascadeResult: restored.cascadeResult,
+        replayIndex: 0,
+        replayFrameCount: replayFrames.length,
+        simRunning: false,
+        containmentActive: false,
+      }),
+      operationalEvents: events.reduce(
+        (acc, ev) => pushOperationalEvent(acc, ev),
+        s.operationalEvents,
+      ),
+    }))
+
+    for (const obj of restored.ikObjects) {
+      void saveIkObjectState({ id: obj.id, status: obj.status, coordinates: obj.coordinates }).catch(() => {})
+    }
+
+    get().startCascadeReplay()
+    get().refreshNationalOverview()
+    return true
+  },
+
+  containIncident: (incidentId, summary) => {
+    const state = get()
+    const incident = state.incidents.find(i => i.id === incidentId)
+    if (!incident) return
+    const operator = state.operator?.name ?? 'OPERATOR'
+    const patch = {
+      status: 'contained' as const,
+      notes: buildClosureNote({ incident, operator, mode: 'contained', summary }),
+    }
+    get().updateIncident(incidentId, patch)
+    const entry = logAction({
+      operator,
+      action: 'incident_contain',
+      details: `Incydent oznaczony jako opanowany: ${incident.title}. ${summary}`,
+      incidentId,
+      mode: state.mode,
+    })
+    get().addAuditEntry(entry)
+    set(s => ({
+      operationalEvents: pushOperationalEvent(
+        s.operationalEvents,
+        createOperationalEvent('recovery_progress', `Incydent CONTAINED · ${incident.title}`, 'info'),
+      ),
+    }))
+    get().pulseEventHeartbeat()
+    get().refreshNationalOverview()
+  },
+
+  handoverIncident: (incidentId, toShift, summary) => {
+    const state = get()
+    const incident = state.incidents.find(i => i.id === incidentId)
+    if (!incident) return
+    const operator = state.operator?.name ?? 'OPERATOR'
+    get().updateIncident(incidentId, {
+      notes: buildHandoverNote({ fromOperator: operator, toShift, summary, incident }),
+    })
+    const entry = logAction({
+      operator,
+      action: 'incident_handover',
+      details: `Przekazanie zmiany → ${toShift}: ${summary}`,
+      incidentId,
+      mode: state.mode,
+    })
+    get().addAuditEntry(entry)
+    set(s => ({
+      operationalEvents: pushOperationalEvent(
+        s.operationalEvents,
+        createOperationalEvent('telemetry_pulse', `Handover ${operator} → ${toShift}`, 'info'),
+      ),
+    }))
+    get().pulseEventHeartbeat()
+  },
+
+  resolveIncident: (incidentId, summary) => {
+    const state = get()
+    const incident = state.incidents.find(i => i.id === incidentId)
+    if (!incident) return
+
+    const gate = canCloseIncident({
+      incident,
+      containmentResult: state.containmentResult,
+      containmentRecovery: state.containmentRecovery,
+    })
+    if (!gate.ok) return
+
+    const operator = state.operator?.name ?? 'OPERATOR'
+    get().updateIncident(incidentId, {
+      status: 'resolved',
+      resolvedAt: new Date(),
+      notes: buildClosureNote({ incident, operator, mode: 'resolved', summary }),
+    })
+
+    const relatedAlerts = state.alerts.filter(a => a.incidentId === incidentId && a.status !== 'resolved')
+    for (const alert of relatedAlerts) {
+      get().updateAlert(alert.id, { status: 'resolved', resolvedAt: new Date() })
+    }
+
+    const entry = logAction({
+      operator,
+      action: 'incident_resolve',
+      details: `Zamknięto incydent: ${incident.title}. ${summary}`,
+      incidentId,
+      mode: state.mode,
+    })
+    get().addAuditEntry(entry)
+
+    if (state.activeScenarioRun) {
+      get().setActiveScenarioRun({
+        ...state.activeScenarioRun,
+        status: 'completed',
+        endedAt: new Date(),
+      })
+    }
+
+    get().resetObjectStatuses()
+    set({
+      cascadeResult: null,
+      containmentResult: null,
+      containmentRecovery: null,
+      cascadeReplayFrames: [],
+      cascadeReplayIndex: 0,
+      activeCascadeView: null,
+      activeIncidentId: null,
+      incidentMapFilter: null,
+      selectedNodeForContainment: null,
+      graphComputeState: {
+        active: false,
+        algorithm: null,
+        visitedNodes: 0,
+        totalNodes: 0,
+        iterationMs: 0,
+        label: 'NOMINAL',
+      },
+      operationalEvents: pushOperationalEvent(
+        get().operationalEvents,
+        createOperationalEvent('integrity_check', `Incydent RESOLVED · ${incident.title}`, 'info'),
+      ),
+      activeView: 'dashboard',
+    })
+    get().refreshNationalOverview()
+    get().pulseEventHeartbeat()
+  },
+
+  abortScenarioOperation: (summary = 'Operacja przerwana przez operatora') => {
+    const state = get()
+    const openIncident = state.incidents.find(i => i.status === 'open' || i.status === 'contained')
+    const operator = state.operator?.name ?? 'OPERATOR'
+
+    if (state.activeScenarioRun) {
+      get().setActiveScenarioRun({
+        ...state.activeScenarioRun,
+        status: 'aborted',
+        endedAt: new Date(),
+      })
+    }
+
+    if (openIncident) {
+      get().updateIncident(openIncident.id, {
+        status: 'resolved',
+        resolvedAt: new Date(),
+        notes: buildClosureNote({
+          incident: openIncident,
+          operator,
+          mode: 'resolved',
+          summary: `[ABORT] ${summary}`,
+        }),
+      })
+    }
+
+    const entry = logAction({
+      operator,
+      action: 'scenario_abort',
+      details: summary,
+      incidentId: openIncident?.id,
+      mode: state.mode,
+    })
+    get().addAuditEntry(entry)
+    get().resetObjectStatuses()
+    set({
+      cascadeResult: null,
+      containmentResult: null,
+      containmentRecovery: null,
+      cascadeReplayFrames: [],
+      activeIncidentId: null,
+      incidentMapFilter: null,
+      activeView: 'incidents',
+    })
+    get().refreshNationalOverview()
+  },
+
   activeScenarioRun: null,
   setActiveScenarioRun: (run) => {
     set({ activeScenarioRun: run })
@@ -333,9 +587,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
 
     set(s => {
-      let ikObjects = s.ikObjects
+      let ikObjects = applyIkStatusPatches(s.ikObjects, outcome.objectStatusUpdates)
       for (const upd of outcome.objectStatusUpdates) {
-        ikObjects = ikObjects.map(o => (o.id === upd.id ? { ...o, status: upd.status } : o))
         const updated = ikObjects.find(o => o.id === upd.id)
         if (updated) void saveIkObjectState({ id: updated.id, status: updated.status, coordinates: updated.coordinates }).catch(() => {})
       }
@@ -348,7 +601,40 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const cascadeResult = outcome.cascadeResult ?? s.cascadeResult
-      const replayFrames = cascadeResult ? buildCascadeReplayFrames(cascadeResult) : s.cascadeReplayFrames
+      let containmentResult = outcome.containmentResult ?? s.containmentResult
+      let cascadeReplayFrames = s.cascadeReplayFrames
+      let cascadeReplayIndex = s.cascadeReplayIndex
+      let containmentRecovery = s.containmentRecovery
+      let graphComputeState = s.graphComputeState
+      let operationalEvents = pushOperationalEvent(
+        s.operationalEvents,
+        createOperationalEvent('action_executed', outcome.auditDetails, outcome.execution.state === 'executed' ? 'info' : 'warning'),
+      )
+
+      if (cascadeResult && outcome.containmentResult) {
+        const commit = commitCascadeState({
+          cascadeResult: s.cascadeResult ?? cascadeResult,
+          containmentResult: outcome.containmentResult,
+          incident: incident ?? undefined,
+          startRecovery: outcome.startRecovery,
+          eventMessage: outcome.auditDetails,
+        })
+        containmentResult = commit.containmentResult
+        cascadeReplayFrames = commit.cascadeReplayFrames
+        cascadeReplayIndex = commit.cascadeReplayIndex
+        containmentRecovery = commit.recovery
+        graphComputeState = commit.graphCompute
+        operationalEvents = commit.operationalEvents.reduce(
+          (acc, ev) => pushOperationalEvent(acc, ev),
+          operationalEvents,
+        )
+        if (commit.incidentPatch && incident) {
+          incidents = incidents.map(i => (i.id === incident.id ? { ...i, ...commit.incidentPatch! } : i))
+        }
+      } else if (cascadeResult) {
+        cascadeReplayFrames = buildCascadeReplayFrames(cascadeResult)
+        cascadeReplayIndex = cascadeReplayFrames.length - 1
+      }
 
       return {
         recommendations: s.recommendations.map(r => (r.id === recId ? executedRec : r)),
@@ -356,19 +642,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         ikObjects,
         incidents,
         cascadeResult,
-        cascadeReplayFrames: replayFrames,
-        cascadeReplayIndex: replayFrames.length > 0 ? replayFrames.length - 1 : 0,
+        containmentResult,
+        cascadeReplayFrames,
+        cascadeReplayIndex,
         activeCascadeView: cascadeResult,
-        operationalEvents: pushOperationalEvent(
-          s.operationalEvents,
-          createOperationalEvent('action_executed', outcome.auditDetails, outcome.execution.state === 'executed' ? 'info' : 'warning'),
-        ),
+        containmentRecovery,
+        graphComputeState,
+        operationalEvents,
+        operationalPulse: s.operationalPulse ? {
+          ...s.operationalPulse,
+          propagationPressure: cascadeResult
+            ? Math.min(100, Math.round(cascadeResult.totalImpactScore * 0.65 + cascadeResult.criticalCount * 8))
+            : 0,
+        } : s.operationalPulse,
       }
     })
 
     void saveRecommendation(executedRec).catch(() => {})
     void saveAuditEntry(execEntry).catch(() => {})
+    get().refreshNationalOverview()
     get().pulseEventHeartbeat()
+    get().startCascadeReplay()
   },
 
   rejectAction: (recId) => {
@@ -405,24 +699,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   containmentResult: null,
   simulateContainmentAt: (nodeIds) => {
-    const { ikObjects, cascadeResult } = get()
+    const { ikObjects, cascadeResult, incidents, activeIncidentId } = get()
     if (!cascadeResult || nodeIds.length === 0) return
     const result = simulateContainment(ikObjects, cascadeResult, nodeIds)
-    set({
+    const incident = incidents.find(i => i.id === activeIncidentId || i.status === 'open')
+    const commit = commitCascadeState({
+      cascadeResult,
       containmentResult: result,
-      cascadeResult: result.contained,
-      activeCascadeView: result.contained,
-      cascadeReplayFrames: buildCascadeReplayFrames(result.contained),
-      cascadeReplayIndex: buildCascadeReplayFrames(result.contained).length - 1,
-      operationalEvents: pushOperationalEvent(
-        get().operationalEvents,
-        createOperationalEvent(
-          'containment_applied',
-          `Containment ${nodeIds.join(', ')} · -${result.impactReduction.toFixed(1)} impact · ${result.preventedNodeIds.length} węzłów powstrzymanych`,
-          'info',
-        ),
-      ),
+      incident: incident ?? undefined,
+      startRecovery: true,
     })
+
+    set(s => ({
+      containmentResult: commit.containmentResult,
+      cascadeResult: commit.cascadeResult,
+      activeCascadeView: commit.activeCascadeView,
+      cascadeReplayFrames: commit.cascadeReplayFrames,
+      cascadeReplayIndex: commit.cascadeReplayIndex,
+      containmentRecovery: commit.recovery,
+      graphComputeState: commit.graphCompute,
+      incidents: incident && commit.incidentPatch
+        ? s.incidents.map(i => (i.id === incident.id ? { ...i, ...commit.incidentPatch! } : i))
+        : s.incidents,
+      operationalEvents: commit.operationalEvents.reduce(
+        (acc, ev) => pushOperationalEvent(acc, ev),
+        s.operationalEvents,
+      ),
+    }))
+
     const entry = logAction({
       operator: get().operator?.name ?? 'OPERATOR',
       action: 'scenario_start',
@@ -430,6 +734,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       mode: get().mode,
     })
     get().addAuditEntry(entry)
+    get().refreshNationalOverview()
+    get().startCascadeReplay()
   },
   clearContainment: () => {
     const { containmentResult } = get()
@@ -447,6 +753,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   operationalEvents: [],
   operationalPulse: null,
+  operationalTelemetry: createInitialTelemetry(),
+  graphComputeState: {
+    active: false,
+    algorithm: null,
+    visitedNodes: 0,
+    totalNodes: 0,
+    iterationMs: 0,
+    label: 'NOMINAL',
+  },
+  containmentRecovery: null,
   runOperationalHeartbeat: async () => {
     const state = get()
     const { pulse, events } = await probeOperationalPulse({
@@ -455,13 +771,88 @@ export const useAppStore = create<AppState>((set, get) => ({
       online: state.online,
     })
     set(s => ({
-      operationalPulse: pulse,
+      operationalPulse: {
+        ...pulse,
+        eventRatePerMin: s.operationalTelemetry.throughputEps,
+        graphComputeMs: s.graphComputeState.iterationMs,
+        activeSyncJobs: pulse.syncQueuePressure > 0 ? 1 : 0,
+      },
       operationalEvents: events.reduce(
         (acc, ev) => pushOperationalEvent(acc, ev),
         s.operationalEvents,
       ),
       eventHeartbeatAt: new Date(),
     }))
+  },
+  tickOperationalTelemetry: () => {
+    const state = get()
+    const tick = tickOperationalTelemetry({
+      telemetry: state.operationalTelemetry,
+      publicDataSources: state.publicDataSources,
+      cascadeResult: state.cascadeResult,
+      online: state.online,
+      recovery: state.containmentRecovery,
+    })
+
+    let ikObjects = state.ikObjects
+    let containmentRecovery = state.containmentRecovery
+    let operationalEvents = tick.events.reduce(
+      (acc, ev) => pushOperationalEvent(acc, ev),
+      state.operationalEvents,
+    )
+
+    if (state.containmentRecovery?.active) {
+      const recoveryTick = tickContainmentRecovery({
+        recovery: state.containmentRecovery,
+        ikObjects,
+      })
+      containmentRecovery = recoveryTick.recovery
+      ikObjects = applyIkStatusPatches(ikObjects, recoveryTick.ikPatches)
+      operationalEvents = recoveryTick.events.reduce(
+        (acc, ev) => pushOperationalEvent(acc, ev),
+        operationalEvents,
+      )
+      for (const patch of recoveryTick.ikPatches) {
+        const updated = ikObjects.find(o => o.id === patch.id)
+        if (updated) void saveIkObjectState({ id: updated.id, status: updated.status, coordinates: updated.coordinates }).catch(() => {})
+      }
+      if (recoveryTick.done) {
+        get().refreshNationalOverview()
+      }
+    }
+
+    const graphComputeState = buildGraphComputeState({
+      cascadeResult: state.cascadeResult,
+      replayIndex: state.cascadeReplayIndex,
+      replayFrameCount: state.cascadeReplayFrames.length,
+      simRunning: state.graphComputeState.active,
+      containmentActive: !!state.containmentRecovery?.active,
+    })
+
+    set({
+      operationalTelemetry: tick.telemetry,
+      containmentRecovery,
+      ikObjects,
+      operationalEvents,
+      graphComputeState,
+      operationalPulse: state.operationalPulse ? {
+        ...state.operationalPulse,
+        eventRatePerMin: tick.telemetry.throughputEps,
+        graphComputeMs: graphComputeState.iterationMs,
+      } : state.operationalPulse,
+    })
+  },
+  updateGraphComputeState: (simRunning = false) => {
+    const state = get()
+    set({
+      graphComputeState: buildGraphComputeState({
+        cascadeResult: state.cascadeResult,
+        replayIndex: state.cascadeReplayIndex,
+        replayFrameCount: state.cascadeReplayFrames.length,
+        simRunning,
+        containmentActive: !!state.containmentRecovery?.active,
+      }),
+    })
   },
 
   nationalRegions: [],
@@ -555,17 +946,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     try {
-      const sync = await refreshPublicDataLayer()
-      set({
+      const orchestration = await orchestratePublicDataSync({
+        online: state.online,
+        mode: state.mode,
+      })
+      set(s => ({
         systemHealth: {
           ...base,
-          publicDataSyncStatus: sync.publicDataSyncStatus,
-          satelliteCacheStatus: sync.satelliteCacheStatus,
-          satelliteCacheAge: sync.satelliteCacheAge,
+          publicDataSyncStatus: orchestration.publicDataSyncStatus,
+          satelliteCacheStatus: orchestration.satelliteCacheStatus,
+          satelliteCacheAge: orchestration.satelliteCacheAge,
           lastSync: new Date(),
         },
-        publicDataSources: getPublicDataSources(state.online),
-      })
+        publicDataSources: orchestration.publicDataSources,
+        operationalEvents: orchestration.events.reduce(
+          (acc, ev) => pushOperationalEvent(acc, ev),
+          s.operationalEvents,
+        ),
+      }))
+      get().refreshNationalOverview()
     } catch {
       set({ systemHealth: base })
     }
@@ -589,6 +988,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         : null,
       cascadeResult: state.cascadeResult,
     })
+    if (incident && !state.cascadeResult) {
+      get().restoreIncidentContext(incident.id)
+    }
   },
   incidentMapFilter: null,
   setIncidentMapFilter: (ids) => set({ incidentMapFilter: ids }),
@@ -609,7 +1011,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setFocusedDroneMissionId: (id) => set({ focusedDroneMissionId: id }),
   openDroneMissionOnMap: (missionId) => set({ focusedDroneMissionId: missionId, activeView: 'map' }),
 
-  hydrateDatabase: (data) =>
+  hydrateDatabase: (data) => {
     set(state => ({
       auditEntries: data.auditEntries.length > 0 ? data.auditEntries : state.auditEntries,
       alerts: data.alerts.length > 0 ? data.alerts : state.alerts,
@@ -617,5 +1019,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       missions: data.missions.length > 0 ? data.missions : state.missions,
       recommendations: data.recommendations.length > 0 ? data.recommendations : state.recommendations,
       ikObjects: applyIkStates(state.ikObjects, data.ikStates),
-    })),
+    }))
+    const openIncident = get().incidents.find(i => i.status === 'open' || i.status === 'contained')
+    if (openIncident && !get().cascadeResult) {
+      get().restoreIncidentContext(openIncident.id)
+    }
+  },
 }))

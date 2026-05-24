@@ -50,6 +50,15 @@ export function IncidentDecisionPanel({
                   <div>
                     <strong>{action.description}</strong>
                     <p>{action.responsible} · {action.timeframe}</p>
+                    {action.tradeoffs?.[0] && (
+                      <p className="icm-decision__tradeoff">{action.tradeoffs[0]}</p>
+                    )}
+                    {action.impactPreview && (
+                      <p className="icm-decision__impact">
+                        ↓{action.impactPreview.impactReductionPct ?? 0}% impact
+                        {action.impactPreview.redundancyLossPct ? ` · -${action.impactPreview.redundancyLossPct}% redundancy` : ''}
+                      </p>
+                    )}
                   </div>
                   <div className="icm-decision__action-btns">
                     <Button size="sm" variant="primary" onClick={() => onApprove(rec.id, action.id)} disabled={action.executionState === 'executed'}>

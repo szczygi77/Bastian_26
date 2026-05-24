@@ -39,7 +39,7 @@ const VIEW_COMPONENTS: Record<string, React.ComponentType> = {
 }
 
 export default function App() {
-  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations, hydrateDatabase, runOperationalHeartbeat } = useAppStore()
+  const { operator, activeView, setOnline, refreshSystemHealth, loadIkLocations, hydrateDatabase, runOperationalHeartbeat, tickOperationalTelemetry } = useAppStore()
 
   useEffect(() => {
     document.title = APP_NAME
@@ -77,11 +77,17 @@ export default function App() {
   useEffect(() => {
     if (!operator) return
     void runOperationalHeartbeat()
-    const interval = setInterval(() => {
+    const heartbeat = setInterval(() => {
       void runOperationalHeartbeat()
     }, 20000)
-    return () => clearInterval(interval)
-  }, [operator, runOperationalHeartbeat])
+    const telemetry = setInterval(() => {
+      tickOperationalTelemetry()
+    }, 3000)
+    return () => {
+      clearInterval(heartbeat)
+      clearInterval(telemetry)
+    }
+  }, [operator, runOperationalHeartbeat, tickOperationalTelemetry])
 
   useEffect(() => {
     if (operator) loadIkLocations()

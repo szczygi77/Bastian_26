@@ -102,6 +102,10 @@ export type OperationalEventType =
   | 'connectivity_probe'
   | 'action_executed'
   | 'containment_applied'
+  | 'graph_compute'
+  | 'recovery_progress'
+  | 'stress_signal'
+  | 'source_degraded'
 
 export interface OperationalEvent {
   id: string
@@ -117,6 +121,46 @@ export interface OperationalPulse {
   sourceFreshnessAvg: number
   integrityOk: boolean
   lastProbeAt: Date
+  eventRatePerMin?: number
+  graphComputeMs?: number
+  activeSyncJobs?: number
+}
+
+export interface OperationalTelemetry {
+  packetsProcessed: number
+  edgePulsePhase: number
+  mapScanPhase: number
+  throughputEps: number
+  lastTickAt: Date
+  stressLevel: number
+}
+
+export interface GraphComputeState {
+  active: boolean
+  algorithm: 'BFS' | 'DFS' | 'CONTAINMENT' | 'RECOVERY' | null
+  visitedNodes: number
+  totalNodes: number
+  iterationMs: number
+  label: string
+}
+
+export interface ContainmentRecoveryState {
+  active: boolean
+  progress: number
+  threatReduction: number
+  trustRecovery: number
+  recoveringNodeIds: string[]
+  containedNodeIds: string[]
+}
+
+export interface ActionImpactPreview {
+  impactReductionPct?: number
+  collateralRiskPct?: number
+  redundancyLossPct?: number
+  responseEtaMinutes?: number
+  executionComplexity?: 'low' | 'medium' | 'high'
+  confidenceAfter?: number
+  dependencyRisk?: string
 }
 
 export type ActionExecutionState =
@@ -347,6 +391,9 @@ export type AuditAction =
   | 'report_export'
   | 'recommendation_approve'
   | 'recommendation_reject'
+  | 'incident_contain'
+  | 'incident_resolve'
+  | 'incident_handover'
   | 'system_config'
   | 'data_sync'
 
@@ -545,4 +592,7 @@ export interface RecommendationAction {
   approvedBy?: string
   approvedAt?: Date
   executedAt?: Date
+  tradeoffs?: string[]
+  consequences?: string[]
+  impactPreview?: ActionImpactPreview
 }

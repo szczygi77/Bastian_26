@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { SCENARIOS } from '@/data/scenarios'
 import { recommendResponseAsset, dispatchRecommendedAsset } from '@/services/skymarshalAssignmentEngine'
@@ -13,6 +13,7 @@ import { IncidentDecisionPanel } from '@/features/incident-command/IncidentDecis
 import { IncidentDataSourcesStrip } from '@/features/incident-command/IncidentDataSourcesStrip'
 import { IncidentReportActions, logReportExport } from '@/features/incident-command/IncidentReportActions'
 import { IncidentContainmentSummary } from '@/features/incident-command/IncidentContainmentSummary'
+import { IncidentLifecycleBar } from '@/features/incident-command/IncidentLifecycleBar'
 import { OperationalHeartbeatStrip } from '@/components/dashboard/OperationalHeartbeatStrip'
 
 export function IncidentCommandPage() {
@@ -40,6 +41,7 @@ export function IncidentCommandPage() {
     updateIncident,
     setActiveIncidentId,
     pulseEventHeartbeat,
+    restoreIncidentContext,
   } = useAppStore()
   const { toast } = useToast()
 
@@ -64,6 +66,12 @@ export function IncidentCommandPage() {
     () => recommendResponseAsset(drones, rootObject),
     [drones, rootObject],
   )
+
+  useEffect(() => {
+    if (incident && incident.status !== 'resolved' && !cascadeResult) {
+      restoreIncidentContext(incident.id)
+    }
+  }, [incident?.id, incident?.status, cascadeResult, restoreIncidentContext])
 
   function handleApprove(recId: string, actionId: string) {
     void approveAction(recId, actionId)
@@ -186,6 +194,7 @@ export function IncidentCommandPage() {
         </main>
 
         <aside className="icm-page__right">
+          <IncidentLifecycleBar incident={incident} />
           {containmentResult && <IncidentContainmentSummary result={containmentResult} />}
           <IncidentDecisionPanel
             recommendations={incidentRecs}
@@ -202,7 +211,6 @@ export function IncidentCommandPage() {
         <IncidentTimeline cascadeResult={cascadeResult} objects={ikObjects} />
         <div className="icm-page__bottom-right">
           <OperationalHeartbeatStrip pulse={operationalPulse} events={operationalEvents} compact />
-          <IncidentDataSourcesStrip sources={publicDataSources} auditEntries={auditEntries} />
         </div>
       </footer>
     </div>

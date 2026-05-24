@@ -1,6 +1,7 @@
 import { memo } from 'react'
-import { Activity, Radio, Shield, Zap } from 'lucide-react'
+import { Activity, Radio, Shield, Zap, Gauge } from 'lucide-react'
 import { formatTimeAgo } from '@/utils/format'
+import { useAppStore } from '@/store/useAppStore'
 import type { OperationalEvent, OperationalPulse } from '@/types'
 
 export const OperationalHeartbeatStrip = memo(function OperationalHeartbeatStrip({
@@ -12,6 +13,7 @@ export const OperationalHeartbeatStrip = memo(function OperationalHeartbeatStrip
   events: OperationalEvent[]
   compact?: boolean
 }) {
+  const operationalTelemetry = useAppStore(s => s.operationalTelemetry)
   if (!pulse) return null
 
   const pressureColor =
@@ -43,6 +45,21 @@ export const OperationalHeartbeatStrip = memo(function OperationalHeartbeatStrip
             {pulse.integrityOk ? 'OK' : 'WARN'}
           </strong>
         </div>
+        {!compact && (
+          <>
+            <div className="ops-heartbeat__metric">
+              <Gauge size={12} />
+              <span>EPS</span>
+              <strong>{pulse.eventRatePerMin ?? operationalTelemetry.throughputEps}</strong>
+            </div>
+            <div className="ops-heartbeat__metric">
+              <span>STRESS</span>
+              <strong style={{ color: operationalTelemetry.stressLevel >= 60 ? '#EF4444' : '#94A3B8' }}>
+                {operationalTelemetry.stressLevel}%
+              </strong>
+            </div>
+          </>
+        )}
         <span className="ops-heartbeat__probe">
           probe {formatTimeAgo(pulse.lastProbeAt)}
         </span>

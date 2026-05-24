@@ -64,6 +64,7 @@ export async function launchCinematicScenario(
 
     const completedRun: ScenarioRun = {
       ...result.run,
+      cascadeResult: result.cascadeResult,
       generatedAlertIds: result.alerts.map((a: Alert) => a.id),
     }
     store.setActiveScenarioRun(completedRun)
