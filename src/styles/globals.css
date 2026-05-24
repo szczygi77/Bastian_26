@@ -3500,6 +3500,10 @@ html.electron-macos {
   color: #3D5060;
 }
 
+.demo-ops-strip__launch {
+  color: #00E5FF;
+}
+
 .demo-ops-strip__track {
   height: 3px;
   border-radius: 999px;

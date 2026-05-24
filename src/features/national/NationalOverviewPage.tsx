@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Globe, MapPin, AlertTriangle, Shield } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Globe, MapPin, AlertTriangle, Shield, RefreshCw } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { aggregateNationalThreat } from '@/services/nationalOverviewService'
 import { Badge } from '@/components/ui/Badge'
@@ -9,6 +9,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Button } from '@/components/ui/Button'
 
 export function NationalOverviewPage() {
+  const [refreshing, setRefreshing] = useState(false)
   const {
     nationalRegions,
     refreshNationalOverview,
@@ -18,9 +19,18 @@ export function NationalOverviewPage() {
   } = useAppStore()
 
   useEffect(() => {
-    refreshPublicDataSources()
-    refreshNationalOverview()
+    void handleRefresh()
   }, [refreshNationalOverview, refreshPublicDataSources])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    try {
+      await refreshPublicDataSources()
+      refreshNationalOverview()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const nationalThreat = aggregateNationalThreat(nationalRegions)
   const liveRegion = nationalRegions.find(r => r.isLiveRegion)
@@ -44,8 +54,19 @@ export function NationalOverviewPage() {
             Regional Command — {liveRegion.name}
           </Button>
         )}
+        <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
+          <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} /> Odśwież
+        </Button>
       </div>
 
+      {nationalRegions.length === 0 ? (
+        <Card accent="cyan">
+          <div className="text-[11px] font-mono text-[#66778B]">
+            {refreshing ? 'Agregacja danych regionalnych…' : 'Brak danych regionalnych — użyj Odśwież.'}
+          </div>
+        </Card>
+      ) : (
+        <>
       <Card accent="orange">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -112,6 +133,8 @@ export function NationalOverviewPage() {
           Drill-down: tylko Lubelskie posiada pełne dane operacyjne w tej instancji Bastion.
         </p>
       </Card>
+        </>
+      )}
     </PageShell>
   )
 }

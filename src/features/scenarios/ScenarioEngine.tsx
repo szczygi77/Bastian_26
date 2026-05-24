@@ -3,15 +3,15 @@ import { Play, Square, AlertTriangle, Clock, Zap, ShieldAlert, Flame, Waves, Cro
 import { useAppStore } from '@/store/useAppStore'
 import { SCENARIOS } from '@/data/scenarios'
 import { getImpactTimeline } from '@/services/cascadeEngine'
-import { runCinematicScenarioLaunch } from '@/services/cinematicScenarioFlow'
+import { launchCinematicScenario } from '@/services/scenarioLaunchService'
 import { logAction } from '@/services/auditLogService'
-import { generateId, formatDuration, severityColor } from '@/utils/format'
+import { formatDuration, severityColor } from '@/utils/format'
 import { Button } from '@/components/ui/Button'
 import { Badge, SeverityBadge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PageSplit, PageSplitSidebar, PageSplitMain } from '@/components/layout/PageShell'
-import type { ScenarioDefinition, ScenarioRun, Alert } from '@/types'
+import type { ScenarioDefinition, ScenarioRun } from '@/types'
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Zap, Shield: ShieldAlert, Droplets, AlertTriangle, WifiOff, Flame, Waves, Crosshair, Target,
@@ -21,8 +21,8 @@ export function ScenarioEngine() {
   const {
     ikObjects, mode, operator,
     setActiveScenarioRun, setCascadeResult, activeScenarioRun,
-    addAlerts, addRecommendation, updateObjectStatus, resetObjectStatuses,
-    addAuditEntry, addIncident, openIncidentCommand, pulseEventHeartbeat,
+    resetObjectStatuses,
+    addAuditEntry,
   } = useAppStore()
 
   const [running, setRunning] = useState(false)
@@ -32,63 +32,12 @@ export function ScenarioEngine() {
 
   async function launchScenario(scenario: ScenarioDefinition) {
     setRunning(true)
-
-    const run: ScenarioRun = {
-      id: `run-${generateId()}`,
-      scenarioId: scenario.id,
-      startedAt: new Date(),
-      status: 'running',
-      generatedAlertIds: [],
-      operatorId: operator?.id ?? 'anonymous',
-      mode,
-    }
-    setActiveScenarioRun(run)
-
-    // Audit: scenario start
-    const auditEntry = logAction({
-      operator: operator?.name ?? 'OPERATOR',
-      action: 'scenario_start',
-      details: `Uruchomiono scenariusz: ${scenario.name} (ID: ${scenario.id})`,
-      affectedObject: scenario.triggerObjectId,
-      mode,
-    })
-    addAuditEntry(auditEntry)
-
     try {
-      const result = await runCinematicScenarioLaunch({
-        scenario,
-        objects: ikObjects,
-        operatorId: operator?.id ?? 'anonymous',
-        mode,
-        runId: run.id,
-        callbacks: {
-          onStep: (step, detail) => {
-            setCinematicStep(detail ? `${step}: ${detail}` : step)
-            const stepEntry = logAction({
-              operator: operator?.name ?? 'OPERATOR',
-              action: 'scenario_start',
-              details: `Cinematic flow — ${step}${detail ? `: ${detail}` : ''}`,
-              affectedObject: scenario.triggerObjectId,
-              mode,
-            })
-            addAuditEntry(stepEntry)
-          },
-          updateObjectStatus,
-          setCascadeResult,
-          addAlerts,
-          addRecommendation,
-          addIncident,
-          openIncidentCommand,
-          pulseEventHeartbeat,
-        },
+      const completedRunData = await launchCinematicScenario(scenario, {
+        onStep: label => setCinematicStep(label),
+        onComplete: run => setCompletedRun(run),
       })
-
-      const completedRunData: ScenarioRun = {
-        ...result.run,
-        generatedAlertIds: result.alerts.map((a: Alert) => a.id),
-      }
-      setActiveScenarioRun(completedRunData)
-      setCompletedRun(completedRunData)
+      if (completedRunData) setCompletedRun(completedRunData)
     } finally {
       setCinematicStep(null)
       setRunning(false)

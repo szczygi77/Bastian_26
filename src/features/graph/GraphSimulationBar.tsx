@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Play, Pause, RotateCcw, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
-export function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
+export const GraphSimulationBar = memo(function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
   const {
     cascadeResult,
     cascadeReplayFrames,
@@ -109,4 +109,4 @@ export function GraphSimulationBar({ compact = false }: { compact?: boolean }) {
       )}
     </div>
   )
-}
+})

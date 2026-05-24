@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import * as d3 from 'd3'
 import { useAppStore } from '@/store/useAppStore'
 import { buildGraph } from '@/services/graphEngine'
@@ -31,7 +31,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   military: '🛡', emergency: '🚨', government: '🏛', fuel: '⛽',
 }
 
-export function DependencyGraph({
+export const DependencyGraph = memo(function DependencyGraph({
   variant = 'page',
   animateCascade = false,
 }: {
@@ -248,6 +248,17 @@ export function DependencyGraph({
   const selectedIKObj = selectedNode ? ikObjects.find(o => o.id === selectedNode.id) : null
   const isIncident = variant === 'incident'
 
+  if (ikObjects.length === 0) {
+    return (
+      <div className="graph-page graph-page--empty">
+        <div className="graph-page__empty">
+          <div className="graph-page__empty-title">DEPENDENCY GRAPH</div>
+          <p>Brak obiektów IK w systemie. Załaduj dane operacyjne lub uruchom scenariusz.</p>
+        </div>
+      </div>
+    )
+  }
+
   if (isIncident) {
     return (
       <div className="graph-page graph-page--incident">
@@ -419,4 +430,4 @@ export function DependencyGraph({
       )}
     </div>
   )
-}
+})

@@ -1,9 +1,10 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import {
-  Activity, CheckCircle2, Circle, ChevronRight,
+  Activity, CheckCircle2, Circle, ChevronRight, Play,
 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { averageTrustScore } from '@/services/sourceTrustService'
+import { launchDefaultDemoScenario } from '@/services/scenarioLaunchService'
 import { Button } from '@/components/ui/Button'
 
 interface DemoStep {
@@ -15,6 +16,8 @@ interface DemoStep {
 }
 
 export const DemoOperationsStrip = memo(function DemoOperationsStrip() {
+  const [launching, setLaunching] = useState(false)
+  const [launchStep, setLaunchStep] = useState<string | null>(null)
   const {
     publicDataSources,
     incidents,
@@ -57,6 +60,20 @@ export const DemoOperationsStrip = memo(function DemoOperationsStrip() {
   const completed = steps.filter(s => s.done).length
   const progress = Math.round((completed / steps.length) * 100)
 
+  async function handleRunDemo() {
+    if (launching || openIncident) return
+    setLaunching(true)
+    setLaunchStep('Inicjalizacja scenariusza…')
+    try {
+      await launchDefaultDemoScenario({
+        onStep: label => setLaunchStep(label),
+      })
+    } finally {
+      setLaunchStep(null)
+      setLaunching(false)
+    }
+  }
+
   return (
     <div className="demo-ops-strip">
       <div className="demo-ops-strip__head">
@@ -67,7 +84,13 @@ export const DemoOperationsStrip = memo(function DemoOperationsStrip() {
         </div>
         <div className="demo-ops-strip__meta">
           Trust {trust} · Presja {operationalPulse?.propagationPressure ?? 0}%
+          {launchStep && <span className="demo-ops-strip__launch"> · {launchStep}</span>}
         </div>
+        {!openIncident && (
+          <Button size="sm" variant="primary" onClick={() => void handleRunDemo()} disabled={launching}>
+            <Play size={12} /> {launching ? 'Uruchamianie…' : 'Uruchom pełne demo'}
+          </Button>
+        )}
       </div>
       <div className="demo-ops-strip__track">
         <div className="demo-ops-strip__progress" style={{ width: `${progress}%` }} />
